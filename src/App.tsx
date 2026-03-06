@@ -868,13 +868,10 @@ export default function App() {
     <button class="fmt-btn" onmousedown="event.preventDefault()" onclick="execFmt('bold')" title="加粗 Ctrl+B"><b style="font-size:12px">B</b></button>
     <button class="fmt-btn" onmousedown="event.preventDefault()" onclick="execFmt('italic')" title="斜体 Ctrl+I"><i style="font-size:12px">I</i></button>
     <button class="fmt-btn" onmousedown="event.preventDefault()" onclick="execFmt('underline')" title="下划线 Ctrl+U"><u style="font-size:12px">U</u></button>
-    <input type="number" id="fsize-inp" min="6" max="72" step="0.5" placeholder="pt"
-      onmousedown="onFsizeMousedown(event)"
-      onkeydown="if(event.key==='Enter'){event.preventDefault();applyFontSize();}"
-      style="width:52px;padding:2px 5px;border-radius:4px;border:1px solid #475569;background:#1e293b;color:#e2e8f0;font-size:11px;text-align:center"
-      title="选中文字后点击此处输入字号，按Enter应用">
-    <button class="fmt-btn" onmousedown="event.preventDefault()" onclick="applyFontSize()" title="应用字号（也可按Enter）" style="font-size:11px;padding:3px 8px">✓</button>
-    <span style="font-size:10px;color:#64748b">pt</span>
+    <span style="font-size:10px;color:#64748b">字号:</span>
+    <button class="fmt-btn" onmousedown="stepFontSize(event,-0.1)" title="减小字号 0.1pt" style="font-size:13px;padding:2px 8px">－</button>
+    <span id="fsize-display" style="min-width:40px;text-align:center;font-size:11px;color:#e2e8f0;padding:2px 4px;background:#0f172a;border:1px solid #475569;border-radius:4px;display:inline-block">—</span>
+    <button class="fmt-btn" onmousedown="stepFontSize(event,0.1)" title="增大字号 0.1pt" style="font-size:13px;padding:2px 8px">＋</button>
     <button class="fmt-btn" onmousedown="event.preventDefault()" onclick="execFmt('removeFormat')" title="清除所选格式" style="font-size:10px">✕格式</button>
   </div>
 
@@ -1067,53 +1064,68 @@ ${bodyHtml}
   });
 
   // 输入框获焦：什么都不做，保持 lastSelRange 即可
-  // 输入框 mousedown：阻止默认焦点转移（保持选区高亮）
-  // 然后用 requestAnimationFrame 手动 focus 输入框（这样不影响选区）
-  function onFsizeMousedown(e) {
-    e.preventDefault();            // 阻止焦点离开编辑区 → 文本选区高亮保持
-    const inp = document.getElementById('fsize-inp');
-    requestAnimationFrame(() => {
-      inp.focus({ preventScroll: true });
-      // 不调用 inp.select()，避免输入框数字高亮与文本选区冲突
-    });
+  function saveSelectionNow() {}
+  function clearHighlight() {}
+
+  // 当前选中文字的字号（用于显示）
+  let currentFontPt = null;
+
+  // 更新字号显示
+  function updateFsizeDisplay(pt) {
+    const d = document.getElementById('fsize-display');
+    if (d) d.textContent = pt ? pt.toFixed(1) + 'pt' : '—';
   }
 
-  function saveSelectionNow() {}
+  // 从选区检测当前字号
+  function detectFontSize() {
+    if (!lastSelRange) return null;
+    const container = lastSelRange.commonAncestorContainer;
+    const el = container.nodeType === 3 ? container.parentElement : container;
+    const fs = window.getComputedStyle(el).fontSize;
+    return fs ? Math.round(parseFloat(fs) * 0.75 * 10) / 10 : 9.5; // px转pt
+  }
 
-  function clearHighlight() {}  // 保留空函数避免其他地方调用报错
+  // 加减按钮：全程 mousedown preventDefault，不转移焦点，选区高亮完整保留
+  function stepFontSize(e, delta) {
+    e.preventDefault(); // 关键：阻止焦点转移，选区高亮不消失
+    if (!lastSelRange) return;
 
-  function applyFontSize() {
-    const inp = document.getElementById('fsize-inp');
-    const pt = parseFloat(inp.value);
-    if (!pt || pt < 1) return;
-    if (!lastSelRange) { alert('请先在简历中选中要修改的文字'); return; }
+    // 初始化当前字号
+    if (currentFontPt === null) currentFontPt = detectFontSize() || 9.5;
+    currentFontPt = Math.round((currentFontPt + delta) * 10) / 10;
+    currentFontPt = Math.max(6, Math.min(72, currentFontPt));
+    updateFsizeDisplay(currentFontPt);
 
     // 恢复选区
     const sel = window.getSelection();
     sel.removeAllRanges();
     sel.addRange(lastSelRange.cloneRange());
 
-    // 用 span 包裹选中内容，直接写入 DOM（永久生效）
+    // 用 span 包裹写入 DOM
     const range = sel.getRangeAt(0);
     const span = document.createElement('span');
-    span.style.fontSize = pt + 'pt';
+    span.style.fontSize = currentFontPt + 'pt';
     try {
       range.surroundContents(span);
-    } catch(e) {
-      // 跨节点：提取内容放入 span
+    } catch(err) {
       const frag = range.extractContents();
       span.appendChild(frag);
       range.insertNode(span);
     }
 
-    // 修改完后重新选中该 span，方便反复调整
+    // 重新选中 span，保持高亮 + 方便继续加减
     const newRange = document.createRange();
     newRange.selectNodeContents(span);
     sel.removeAllRanges();
     sel.addRange(newRange);
     lastSelRange = newRange.cloneRange();
-    // inp.value 保留，方便微调
   }
+
+  // selectionchange 时重置 currentFontPt，让下次加减从当前字号开始
+  document.addEventListener('selectionchange', () => {
+    currentFontPt = null;
+    updateFsizeDisplay(null);
+  });
 
   // ── 导出PDF（打印） ──
   function exportPdf() {
