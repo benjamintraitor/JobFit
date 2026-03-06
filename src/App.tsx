@@ -960,38 +960,50 @@ ${bodyHtml}
   scaleInp.addEventListener('change',()=>applySize(parseFloat(scaleInp.value)||9.5));
 
   // ── 可编辑模式 ──
+  // 保存编辑区 HTML 快照（用于关闭编辑时持久化）
+  const snapshots = {};
+
   function toggleEdit() {
     editMode = !editMode;
     const btn = document.getElementById('edit-btn');
     const tip = document.getElementById('edit-tip');
-    // 把整个简历内容区（header-text + resume-body）设为一个整体可编辑块
+    const fmtBar = document.getElementById('fmt-bar');
     const editZones = [
       document.getElementById('header-text'),
       document.getElementById('resume-body')
     ];
-    editZones.forEach(el => {
-      if (!el) return;
-      el.contentEditable = editMode ? 'true' : 'false';
-      el.style.outline = 'none';
-      if (editMode) {
+
+    if (!editMode) {
+      // 关闭编辑前：先清除高亮，再快照 innerHTML，然后关闭
+      clearHighlight();
+      savedRange = null;
+      editZones.forEach(el => {
+        if (!el) return;
+        snapshots[el.id] = el.innerHTML; // 保存当前内容
+        el.contentEditable = 'false';
+        el.style.background = '';
+        el.style.cursor = '';
+      });
+    } else {
+      // 开启编辑：恢复快照内容（如果有）
+      editZones.forEach(el => {
+        if (!el) return;
+        if (snapshots[el.id]) el.innerHTML = snapshots[el.id];
+        el.contentEditable = 'true';
+        el.style.outline = 'none';
         el.style.background = 'rgba(59,130,246,0.03)';
         el.style.borderRadius = '4px';
         el.style.cursor = 'text';
         el.style.minHeight = '20px';
-      } else {
-        el.style.background = '';
-        el.style.cursor = '';
-      }
-    });
-    const fmtBar = document.getElementById('fmt-bar');
-    btn.textContent  = editMode ? '✅ 关闭编辑' : '✏️ 开启编辑';
-    btn.className    = editMode ? 'btn-blue' : 'btn-orange';
-    tip.style.display= editMode ? 'block' : 'none';
-    if (fmtBar) fmtBar.style.display = editMode ? 'flex' : 'none';
-    if (editMode) {
+      });
       const body = document.getElementById('resume-body');
       if (body) body.focus();
     }
+
+    btn.textContent = editMode ? '✅ 关闭编辑' : '✏️ 开启编辑';
+    btn.className   = editMode ? 'btn-blue' : 'btn-orange';
+    tip.style.display = editMode ? 'block' : 'none';
+    if (fmtBar) fmtBar.style.display = editMode ? 'flex' : 'none';
   }
 
   // ── 照片上传 ──
@@ -1030,103 +1042,99 @@ ${bodyHtml}
     document.execCommand(cmd, false, null);
   }
   let savedRange = null;
-  let highlightSpan = null; // 自定义高亮 span
+  let highlightSpan = null;
 
-  // 清除自定义高亮，把内容解包回去
+  // 清除高亮 span，解包内容
   function clearHighlight() {
-    if (highlightSpan && highlightSpan.parentNode) {
-      const parent = highlightSpan.parentNode;
-      while (highlightSpan.firstChild) {
-        parent.insertBefore(highlightSpan.firstChild, highlightSpan);
-      }
-      parent.removeChild(highlightSpan);
-      parent.normalize();
+    const old = document.getElementById('__sel_highlight__');
+    if (old && old.parentNode) {
+      const p = old.parentNode;
+      while (old.firstChild) p.insertBefore(old.firstChild, old);
+      p.removeChild(old);
+      p.normalize();
     }
     highlightSpan = null;
   }
 
-  // 用自定义高亮 span 包裹选中区域，视觉上保持高亮
-  function applyHighlight(range) {
+  // 用蓝色背景 span 包裹选中文字，保持视觉高亮
+  function applyHighlight() {
     clearHighlight();
-    highlightSpan = document.createElement('span');
-    highlightSpan.id = '__sel_highlight__';
-    highlightSpan.style.cssText = 'background:rgba(59,130,246,0.25);border-radius:2px;';
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !savedRange) return;
+    const span = document.createElement('span');
+    span.id = '__sel_highlight__';
+    span.style.cssText = 'background:rgba(59,130,246,0.2);border-radius:2px;display:inline;';
+    // 把 savedRange 的内容包裹进 span
+    const range = savedRange.cloneRange();
     try {
-      range.surroundContents(highlightSpan);
+      range.surroundContents(span);
+      highlightSpan = span;
     } catch(e) {
-      // 跨节点时克隆内容放入高亮span
-      highlightSpan.appendChild(range.extractContents());
-      range.insertNode(highlightSpan);
+      // 跨多个块级元素时，直接用 innerHTML 方式
+      const frag = range.extractContents();
+      span.appendChild(frag);
+      range.insertNode(span);
+      highlightSpan = span;
     }
+    sel.removeAllRanges(); // 移除原生选区，由 span 模拟高亮
+    // 更新 savedRange 指向 span 内部
+    const nr = document.createRange();
+    nr.selectNodeContents(span);
+    savedRange = nr;
   }
 
-  // 监听编辑区选区变化 - 实时保存 + 显示自定义高亮
-  document.addEventListener('mouseup', () => {
+  // mouseup：在编辑区松开鼠标时，保存选区
+  document.addEventListener('mouseup', (e) => {
+    const fmtBar = document.getElementById('fmt-bar');
+    if (fmtBar && fmtBar.contains(e.target)) return;
     const sel = window.getSelection();
     const body = document.getElementById('resume-body');
     const header = document.getElementById('header-text');
-    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
+      // 点击空白处：清除高亮
+      if (!(fmtBar && fmtBar.contains(e.target))) {
+        clearHighlight();
+        savedRange = null;
+      }
+      return;
+    }
     const anchor = sel.anchorNode;
     if (!body || (!body.contains(anchor) && !(header && header.contains(anchor)))) return;
-    // 保存选区
+    clearHighlight();
     savedRange = sel.getRangeAt(0).cloneRange();
-    // 清除旧高亮（不应用）
-    if (highlightSpan) clearHighlight();
   });
 
+  // 输入框获焦时：应用高亮保持视觉
   function saveSelectionNow() {
-    // 输入框获焦时：把当前选区换成自定义高亮，这样视觉上高亮不会消失
-    const sel = window.getSelection();
-    if (savedRange) {
-      // 重新从 savedRange 应用高亮
-      applyHighlight(savedRange.cloneRange());
-      sel.removeAllRanges(); // 清除原生选区（高亮已由 span 模拟）
-    }
+    if (savedRange) applyHighlight();
   }
 
   function applyFontSize() {
     const inp = document.getElementById('fsize-inp');
     const pt = parseFloat(inp.value);
     if (!pt || pt < 1) return;
-    if (!highlightSpan && !savedRange) {
-      alert('请先选中要修改的文字');
-      return;
+    if (!highlightSpan || !highlightSpan.parentNode) {
+      if (!savedRange) { alert('请先选中要修改的文字'); return; }
+      applyHighlight();
     }
-
     if (highlightSpan && highlightSpan.parentNode) {
-      // 直接修改高亮 span 内所有文字节点的字号
+      // 直接修改高亮 span 的字号，保留高亮不解包
       highlightSpan.style.fontSize = pt + 'pt';
-      // 保持高亮，不解包，让用户可以反复修改
-      // 更新 savedRange 指向当前高亮 span
-      const newRange = document.createRange();
-      newRange.selectNodeContents(highlightSpan);
-      savedRange = newRange;
+      // 同步快照
+      const body = document.getElementById('resume-body');
+      const header = document.getElementById('header-text');
+      if (body) snapshots['resume-body'] = body.innerHTML;
+      if (header) snapshots['header-text'] = header.innerHTML;
     }
-    // 不清空 inp.value，方便微调
-    // 不清空 savedRange 和 highlightSpan，允许反复修改
+    // 不清空 inp/savedRange/highlightSpan，支持反复调整
   }
-
-  // 点击编辑区空白处或关闭编辑时解除高亮
-  document.addEventListener('mousedown', (e) => {
-    const inp = document.getElementById('fsize-inp');
-    const fmtBar = document.getElementById('fmt-bar');
-    // 如果点击的是格式栏内的元素，不解除高亮
-    if (fmtBar && fmtBar.contains(e.target)) return;
-    // 如果点击的是编辑区，先解除旧高亮（mouseup 会重新建立新选区）
-    const body = document.getElementById('resume-body');
-    const header = document.getElementById('header-text');
-    if (body && (body.contains(e.target) || (header && header.contains(e.target)))) {
-      clearHighlight();
-      savedRange = null;
-    }
-  });
 
   // ── 导出PDF（打印） ──
   function exportPdf() {
-    // 关闭编辑模式
+    clearHighlight();
+    savedRange = null;
     if (editMode) toggleEdit();
-    // 短暂延迟确保 contenteditable 状态清除
-    setTimeout(() => window.print(), 100);
+    setTimeout(() => window.print(), 150);
   }
 
 
