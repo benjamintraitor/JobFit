@@ -1070,11 +1070,11 @@ ${bodyHtml}
   // 输入框 mousedown：阻止默认焦点转移（保持选区高亮）
   // 然后用 requestAnimationFrame 手动 focus 输入框（这样不影响选区）
   function onFsizeMousedown(e) {
-    e.preventDefault();            // 阻止焦点离开编辑区 → 选区高亮保持
+    e.preventDefault();            // 阻止焦点离开编辑区 → 文本选区高亮保持
     const inp = document.getElementById('fsize-inp');
-    requestAnimationFrame(() => {  // 下一帧再 focus，此时选区已保存
-      inp.focus();
-      inp.select();
+    requestAnimationFrame(() => {
+      inp.focus({ preventScroll: true });
+      // 不调用 inp.select()，避免输入框数字高亮与文本选区冲突
     });
   }
 
