@@ -1,0 +1,1588 @@
+import { useState, useRef } from "react";
+import type { ReactNode } from "react";
+
+const API_ENDPOINT = "https://api.deepseek.com/v1/chat/completions";
+const HARDCODED_API_KEY = "sk-a557d052a0c149da8de1b59249694c2a";
+
+const MODELS = [
+  { id: "deepseek-chat", label: "DeepSeek V3", desc: "最强，推荐 🔥" },
+  { id: "deepseek-reasoner", label: "DeepSeek R1", desc: "深度推理版" },
+];
+
+const DEFAULT_PROMPTS = {
+  structurePdf: `你是专业简历解析专家。以下是从PDF中提取的原始文本，由于PDF排版问题，文字顺序可能混乱、重复或错位。
+
+【PDF原始文本】
+{{rawText}}
+
+请仔细阅读并还原出正确的简历内容，严格按照以下格式输出：
+
+---
+
+# 基本信息
+姓名：XXX
+联系方式：XXX
+求职意向：XXX
+
+---
+
+# 教育背景
+
+## 学校名称（最近一段）
+- 时间：XXXX-XX ～ XXXX-XX
+- 专业/学历：XXX
+- 备注：（如核心课程、GPA、奖学金等，没有则省略）
+
+## 学校名称（更早）
+...
+
+---
+
+# 工作经历
+
+## 公司名称（最近一段）
+- 时间：XXXX-XX ～ XXXX-XX
+- 职位：XXX
+- 所在部门：XXX（没有则省略）
+
+### 项目：项目名称A（如果该公司工作是项目制，在公司下列出）
+- 项目背景：XXX（1-2句，说明为什么做这个项目）
+- 负责内容：
+  1. XXX
+  2. XXX
+- 项目成果：XXX（量化数据，如有）
+
+### 项目：项目名称B
+...
+
+（如果该公司不是项目制，直接列工作内容）
+- 负责内容：
+  1. XXX
+  2. XXX
+- 工作成果：XXX
+
+## 公司名称（更早）
+...
+
+---
+
+# 个人项目 / 独立项目
+（仅填写不属于任何公司的个人项目、开源项目、副业项目等）
+
+## 项目名称
+- 时间：XXXX-XX ～ XXXX-XX
+- 项目描述：XXX
+- 负责内容：
+  1. XXX
+- 成果：XXX
+
+---
+
+# 技能
+- 技术栈：XXX
+- 工具：XXX
+- 语言：XXX
+
+---
+
+# 其他
+（证书、获奖、自我评价等，没有则省略整个分类）
+
+---
+
+【重要规则】
+1. 公司内部的项目，必须放在对应公司下，用"### 项目：xxx"表示，不要单独提取为个人项目
+2. 个人项目是指完全独立于公司之外的项目，才放在"# 个人项目"分类
+3. 如果原文中某段经历不确定是公司项目还是个人项目，优先判断为公司项目（因为大多数简历是项目制公司经历）
+4. 去除重复的文字（PDF解析常见重复问题）
+5. 严格还原原文信息，不要推断、补充或编造
+6. 直接输出格式化后的简历，不要有任何说明文字`,
+
+  analyze: `# Role
+你是一位顶级招聘专家和人才评估顾问，拥有丰富的互联网与AI行业招聘经验。
+
+【简历内容】
+{{resume}}
+
+【职位描述】
+{{jd}}
+
+# Task
+请分析候选人简历与岗位JD之间的匹配度，并从招聘决策视角进行评估。
+
+# Analysis Steps（内部思考步骤，不要输出）
+
+Step 1：提取岗位JD的关键能力要求（核心技能、项目经验、行业经验、教育背景、工作年限）
+Step 2：提取简历中的关键信息（技能、项目经验、行业背景、工作经历、教育背景）
+Step 3：进行逐项匹配分析
+Step 4：按以下维度计算评分
+  - 技能匹配（40分）
+  - 项目经验（30分）
+  - 行业经验（15分）
+  - 教育背景（5分）
+  - 工作年限（10分）
+Step 5：给出招聘建议（强烈推荐 / 可以考虑 / 不太匹配）
+
+# Output
+完成以上分析后，只返回如下JSON格式，不要输出任何其他文字、表格、分析过程或代码块标记：
+{"score":85,"skills":["技能1","技能2"],"responsibilities":["职责1","职责2"],"requirements":["要求1","要求2"],"strengths":["亮点1","亮点2"],"gaps":["差距1","差距2"],"suggestion":"是否建议投递及详细理由"}`,
+
+  optimize: `# Role
+你是一位顶级HR招聘专家，每天需要筛选上百份简历，非常清楚什么样的简历更容易通过初筛。
+
+【当前简历】
+{{resume}}
+
+【目标职位描述】
+{{jd}}
+
+【匹配分析】
+- 匹配分数：{{score}}分
+- 差距：{{gaps}}
+
+# Task
+请根据岗位JD，对候选人的简历给出优化建议，使其更容易通过HR筛选。
+
+# Optimization Strategy
+请遵循以下优化原则：
+1. 强化岗位关键词（ATS系统友好）
+2. 突出最相关的项目经验
+3. 删除无关内容
+4. 强调成果导向表达
+5. 提高可读性
+
+# Writing Rules
+请使用以下表达结构：
+动词 + 行动 + 结果
+例如：
+❌ 负责数据分析工作
+✔ 搭建数据分析流程，提高运营效率30%
+
+请严格按照以下JSON数组格式返回5条优化建议，不要有任何额外文字或代码块标记：
+[{"index":1,"title":"建议标题（10字以内）","location":"需修改的简历位置（如：工作经历-XX公司、技能栏）","problem":"当前存在的具体问题（1-2句）","action":"具体修改步骤，用换行分隔每步","impact":"修改后提升的匹配度方向（1句）","priority":"high"},{"index":2,"title":"...","location":"...","problem":"...","action":"...","impact":"...","priority":"medium"}]
+
+priority只能是 high、medium、low 之一。`,
+
+  rewrite: `你是专业简历优化师。请根据目标职位要求和已生成的优化建议，对简历进行针对性改写。
+
+【原始简历】
+{{resume}}
+
+【目标职位描述】
+{{jd}}
+
+【需要执行的优化建议】
+{{suggestions}}
+
+要求：
+1. 严格按照上方每条优化建议进行对应位置的修改
+2. 保留原有真实经历，不编造虚假内容
+3. 优化描述方式，突出与职位相关的技能和经验
+4. 调整关键词，使其更符合JD要求
+5. 保持简历原有结构
+6. 如果JD中存在简历未提及的能力要求：
+   - 只能指出"该能力缺失"
+   - 或建议候选人补充真实经验
+
+请直接输出优化后的完整简历内容，不要有额外说明。`
+};
+
+interface AnalysisResult {
+  score: number;
+  skills: string[];
+  responsibilities: string[];
+  requirements: string[];
+  strengths: string[];
+  gaps: string[];
+  suggestion: string;
+}
+
+interface OptimizeSuggestion {
+  index: number;
+  title: string;
+  location: string;
+  problem: string;
+  action: string;
+  impact: string;
+  priority: "high" | "medium" | "low";
+}
+
+interface HistoryItem {
+  id: string;
+  date: string;
+  jobTitle: string;
+  score: number;
+  resume: string;
+  jd: string;
+  result: AnalysisResult;
+  model: string;
+  optimizeSuggestions: OptimizeSuggestion[];
+  rewrittenResume: string;
+}
+
+function OptimizeCard({ item }: { item: OptimizeSuggestion }) {
+  const priorityMap = {
+    high: { label: "高优先级", color: "#f87171", bg: "#450a0a55", border: "#f8717144" },
+    medium: { label: "中优先级", color: "#facc15", bg: "#42200655", border: "#facc1544" },
+    low: { label: "低优先级", color: "#60a5fa", bg: "#1e3a5f55", border: "#60a5fa44" },
+  };
+  const p = priorityMap[item.priority] || priorityMap["medium"];
+  const actionSteps = item.action
+    .split(/\n/)
+    .map((s: string) => s.trim())
+    .filter((s: string) => s.length > 0);
+
+  return (
+    <div style={{
+      background: "#080d1a",
+      border: `1px solid ${p.border}`,
+      borderLeft: `3px solid ${p.color}`,
+      borderRadius: 12, padding: "18px 20px", marginBottom: 14
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+        <span style={{ fontSize: 14, fontWeight: 800, color: "#e2e8f0" }}>
+          建议 {item.index}：{item.title}
+        </span>
+        <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 99, background: p.bg, color: p.color, border: `1px solid ${p.border}`, fontWeight: 600 }}>
+          {p.label}
+        </span>
+      </div>
+
+      <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontSize: 12, color: "#64748b", flexShrink: 0 }}>📍 修改位置</span>
+        <span style={{ fontSize: 12, color: "#f87171", fontWeight: 700, background: "#450a0a66", padding: "3px 10px", borderRadius: 6, border: "1px solid #f8717133" }}>
+          {item.location}
+        </span>
+      </div>
+
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 11, color: "#64748b", letterSpacing: 1, textTransform: "uppercase" as const, marginBottom: 6 }}>⚠ 当前问题</div>
+        <div style={{ fontSize: 13, color: "#f87171", lineHeight: 1.7, paddingLeft: 8, borderLeft: "2px solid #f8717133" }}>
+          {item.problem}
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 11, color: "#64748b", letterSpacing: 1, textTransform: "uppercase" as const, marginBottom: 8 }}>✏ 如何修改</div>
+        <div style={{ background: "#0f172a", borderRadius: 8, padding: "10px 14px" }}>
+          {actionSteps.map((step: string, i: number) => (
+            <div key={i} style={{ fontSize: 13, color: "#cbd5e1", lineHeight: 1.8, display: "flex", gap: 8, alignItems: "flex-start", marginBottom: i < actionSteps.length - 1 ? 6 : 0 }}>
+              <span style={{ color: "#3b82f6", fontWeight: 700, flexShrink: 0, minWidth: 18, fontSize: 12, marginTop: 2 }}>{i + 1}.</span>
+              <span>{step.replace(/^\d+[.、．]\s*/, "")}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
+        <span style={{ fontSize: 11, color: "#64748b", flexShrink: 0, marginTop: 1 }}>✅ 预期效果</span>
+        <span style={{ fontSize: 12, color: "#4ade80", lineHeight: 1.7 }}>{item.impact}</span>
+      </div>
+    </div>
+  );
+}
+
+function ScoreRing({ score }: { score: number }) {
+  const radius = 54;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (score / 100) * circumference;
+  const color = score >= 80 ? "#4ade80" : score >= 60 ? "#facc15" : "#f87171";
+  return (
+    <div style={{ position: "relative", width: 140, height: 140, margin: "0 auto" }}>
+      <svg width="140" height="140" style={{ transform: "rotate(-90deg)" }}>
+        <circle cx="70" cy="70" r={radius} fill="none" stroke="#1e293b" strokeWidth="12" />
+        <circle cx="70" cy="70" r={radius} fill="none" stroke={color} strokeWidth="12"
+          strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
+          style={{ transition: "stroke-dashoffset 1.2s ease" }} />
+      </svg>
+      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+        <span style={{ fontSize: 36, fontWeight: 800, color, fontFamily: "monospace" }}>{score}</span>
+        <span style={{ fontSize: 11, color: "#64748b", letterSpacing: 2, textTransform: "uppercase" }}>匹配度</span>
+      </div>
+    </div>
+  );
+}
+
+function Tag({ text, color }: { text: string; color: string }) {
+  const colors: Record<string, { bg: string; text: string; border: string }> = {
+    blue: { bg: "#1e3a5f", text: "#60a5fa", border: "#2563eb33" },
+    yellow: { bg: "#422006", text: "#fbbf24", border: "#d9770633" },
+  };
+  const c = colors[color] || colors["blue"];
+  return (
+    <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 99, background: c.bg, color: c.text, border: `1px solid ${c.border}`, fontSize: 12, margin: "3px 4px 3px 0", fontFamily: "monospace" }}>
+      {text}
+    </span>
+  );
+}
+
+function Section({ title, icon, children }: { title: string; icon: string; children: ReactNode }) {
+  return (
+    <div style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 16, padding: "20px 24px", marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+        <span style={{ fontSize: 18 }}>{icon}</span>
+        <span style={{ fontWeight: 700, color: "#e2e8f0", fontSize: 14 }}>{title}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function ScoreBadge({ score }: { score: number }) {
+  const color = score >= 80 ? "#4ade80" : score >= 60 ? "#facc15" : "#f87171";
+  const bg = score >= 80 ? "#14532d33" : score >= 60 ? "#42200633" : "#450a0a33";
+  return (
+    <span style={{ fontSize: 13, fontWeight: 700, color, background: bg, padding: "2px 10px", borderRadius: 99, fontFamily: "monospace" }}>
+      {score}分
+    </span>
+  );
+}
+
+function Spinner() {
+  return (
+    <span style={{ display: "inline-block", width: 13, height: 13, border: "2px solid #ffffff44", borderTop: "2px solid white", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+  );
+}
+
+function PromptEditor({ prompts, onChange }: {
+  prompts: typeof DEFAULT_PROMPTS;
+  onChange: (key: keyof typeof DEFAULT_PROMPTS, val: string) => void;
+}) {
+  const [activePrompt, setActivePrompt] = useState<keyof typeof DEFAULT_PROMPTS>("analyze");
+  const promptMeta = [
+    { key: "structurePdf" as const, label: "🗂 PDF结构化", desc: "PDF上传后，AI自动将乱文本整理为标准简历结构（新增）" },
+    { key: "analyze" as const, label: "📊 匹配分析", desc: "分析简历与JD匹配度，返回结构化JSON数据" },
+    { key: "optimize" as const, label: "💡 优化建议", desc: "生成5条结构化建议，返回JSON数组" },
+    { key: "rewrite" as const, label: "✏️ AI改写简历", desc: "基于优化建议对简历全面改写（{{suggestions}}自动注入）" },
+  ];
+  const varHints: Record<keyof typeof DEFAULT_PROMPTS, string[]> = {
+    structurePdf: ["{{rawText}} ← PDF原始乱文本"],
+    analyze: ["{{resume}}", "{{jd}}"],
+    optimize: ["{{resume}}", "{{jd}}", "{{score}}", "{{gaps}}"],
+    rewrite: ["{{resume}}", "{{jd}}", "{{suggestions}} ← 自动注入优化建议"],
+  };
+
+  return (
+    <div style={{ paddingBottom: 40 }}>
+      <div style={{ marginBottom: 20, padding: "14px 18px", background: "#0f172a", border: "1px solid #f59e0b44", borderRadius: 12, fontSize: 13, color: "#94a3b8", lineHeight: 1.8 }}>
+        ⚙️ 在此查看和修改每个模块的 AI 提示词，修改后立即生效。
+        <span style={{ color: "#f59e0b" }}> 「改写简历」会自动将优化建议注入 <code style={{ background: "#1e293b", padding: "1px 6px", borderRadius: 4, fontSize: 11 }}>{"{{suggestions}}"}</code>，请勿删除。</span>
+      </div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+        {promptMeta.map((p) => (
+          <button key={p.key} onClick={() => setActivePrompt(p.key)} style={{
+            padding: "8px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer",
+            border: activePrompt === p.key ? "1px solid #3b82f6" : "1px solid #1e293b",
+            background: activePrompt === p.key ? "#1e3a5f" : "#0f172a",
+            color: activePrompt === p.key ? "#60a5fa" : "#475569",
+          }}>{p.label}</button>
+        ))}
+      </div>
+      <div style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 16, padding: "20px 24px" }}>
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontWeight: 700, color: "#e2e8f0", fontSize: 14, marginBottom: 4 }}>{promptMeta.find(p => p.key === activePrompt)?.label}</div>
+          <div style={{ fontSize: 12, color: "#475569", marginBottom: 10 }}>{promptMeta.find(p => p.key === activePrompt)?.desc}</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14, alignItems: "center" }}>
+            <span style={{ fontSize: 11, color: "#64748b" }}>可用变量：</span>
+            {varHints[activePrompt].map((v, i) => (
+              <span key={i} style={{ fontSize: 11, background: "#1e293b", color: "#94a3b8", padding: "2px 8px", borderRadius: 6, fontFamily: "monospace" }}>{v}</span>
+            ))}
+          </div>
+        </div>
+        <textarea
+          value={prompts[activePrompt]}
+          onChange={(e) => onChange(activePrompt, e.target.value)}
+          style={{ width: "100%", background: "#020817", border: "1px solid #1e293b", borderRadius: 10, padding: "14px 16px", color: "#e2e8f0", fontSize: 12, lineHeight: 1.8, resize: "vertical", outline: "none", boxSizing: "border-box", fontFamily: "monospace", minHeight: 380 }}
+        />
+        <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+          <button onClick={() => onChange(activePrompt, DEFAULT_PROMPTS[activePrompt])}
+            style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: "8px 16px", color: "#94a3b8", fontSize: 12, cursor: "pointer" }}>
+            🔄 恢复默认
+          </button>
+          <button onClick={() => navigator.clipboard.writeText(prompts[activePrompt])}
+            style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: "8px 16px", color: "#94a3b8", fontSize: 12, cursor: "pointer" }}>
+            📋 复制 Prompt
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  const [selectedModel, setSelectedModel] = useState<string>(MODELS[0].id);
+  const [resume, setResume] = useState<string>("");
+  const [rawPdfText, setRawPdfText] = useState<string>("");
+  const [pdfStructured, setPdfStructured] = useState<boolean>(false);
+  const [pdfFileName, setPdfFileName] = useState<string>("");
+  const [pdfLoading, setPdfLoading] = useState<boolean>(false);
+  const [pdfStructuring, setPdfStructuring] = useState<boolean>(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string>("");   // PDF blob URL 用于弹窗预览
+  const [showPdfModal, setShowPdfModal] = useState<boolean>(false); // 控制弹窗
+  const [jd, setJd] = useState<string>("");
+  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<string>("input");
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [optimizeSuggestions, setOptimizeSuggestions] = useState<OptimizeSuggestion[]>([]);
+  const [optimizeRaw, setOptimizeRaw] = useState<string>("");
+  const [optimizeLoading, setOptimizeLoading] = useState<boolean>(false);
+  const [rewrittenResume, setRewrittenResume] = useState<string>("");
+  const [rewriteLoading, setRewriteLoading] = useState<boolean>(false);
+  const [pdfExporting, setPdfExporting] = useState<boolean>(false);
+  const [dragOver, setDragOver] = useState<boolean>(false);
+  const [prompts, setPrompts] = useState({ ...DEFAULT_PROMPTS });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const updatePrompt = (key: keyof typeof DEFAULT_PROMPTS, val: string) => {
+    setPrompts(prev => ({ ...prev, [key]: val }));
+  };
+
+  const fillPrompt = (template: string, vars: Record<string, string>) => {
+    let out = template;
+    for (const [k, v] of Object.entries(vars)) {
+      out = out.split(`{{${k}}}`).join(v);
+    }
+    return out;
+  };
+
+  const extractPdfText = async (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const pdfjsLib = (window as any).pdfjsLib;
+          if (!pdfjsLib) { reject(new Error("PDF解析库未加载，请刷新页面")); return; }
+          const typedArray = new Uint8Array(e.target?.result as ArrayBuffer);
+          const pdf = await pdfjsLib.getDocument({ data: typedArray }).promise;
+          let fullText = "";
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            fullText += textContent.items.map((item: any) => item.str).join(" ") + "\n";
+          }
+          resolve(fullText.trim());
+        } catch (err) { reject(err); }
+      };
+      reader.onerror = () => reject(new Error("文件读取失败"));
+      reader.readAsArrayBuffer(file);
+    });
+  };
+
+  const handlePdfUpload = async (file: File) => {
+    const isImg = /\.(png|jpg|jpeg|webp|bmp)$/i.test(file.name);
+    const isPdf = file.name.toLowerCase().endsWith(".pdf");
+    if (!isPdf && !isImg) { setError("请上传PDF或图片格式（PNG/JPG等）"); return; }
+    // 图片格式：直接用AI识别文字，不走PDF.js
+    if (isImg) {
+      setPdfLoading(true); setError(""); setPdfStructured(false);
+      if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
+      setPdfPreviewUrl(URL.createObjectURL(file));
+      setPdfFileName(file.name);
+      try {
+        const base64 = await new Promise<string>((res, rej) => {
+          const r = new FileReader();
+          r.onload = () => res((r.result as string).split(",")[1]);
+          r.onerror = rej;
+          r.readAsDataURL(file);
+        });
+        setPdfLoading(false); setPdfStructuring(true);
+        const structRes = await fetch(API_ENDPOINT, {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + HARDCODED_API_KEY, "Content-Type": "application/json" },
+          body: JSON.stringify({ model: "deepseek-chat", messages: [{ role: "user", content: [
+            { type: "image_url", image_url: { url: "data:" + file.type + ";base64," + base64 } },
+            { type: "text", text: fillPrompt(prompts.structurePdf, { rawText: "[图片简历，请直接识别并结构化输出]" }) }
+          ]}], temperature: 0.1 })
+        });
+        if (!structRes.ok) throw new Error("图片识别失败");
+        const structData = await structRes.json();
+        setResume(structData.choices[0].message.content.trim());
+        setPdfStructured(true);
+      } catch(e: unknown) {
+        setError("图片识别失败：" + (e instanceof Error ? e.message : "未知错误"));
+      } finally { setPdfLoading(false); setPdfStructuring(false); }
+      return;
+    }
+    setPdfLoading(true); setError(""); setPdfStructured(false);
+
+    // 生成 blob URL 供弹窗预览（不走解析，直接保存原文件）
+    if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl); // 释放旧的
+    const blobUrl = URL.createObjectURL(file);
+    setPdfPreviewUrl(blobUrl);
+
+    try {
+      // Step 1: PDF.js 提取原始文本
+      const rawText = await extractPdfText(file);
+      if (!rawText || rawText.length < 10) throw new Error("PDF内容为空，请直接粘贴文字");
+      setRawPdfText(rawText);
+      setPdfFileName(file.name);
+      setPdfLoading(false);
+
+      // Step 2: AI 结构化整理（关键新增步骤）
+      setPdfStructuring(true);
+      const structurePrompt = fillPrompt(prompts.structurePdf, { rawText });
+      const res = await fetch(API_ENDPOINT, {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + HARDCODED_API_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "deepseek-chat", messages: [{ role: "user", content: structurePrompt }], temperature: 0.1 })
+      });
+      if (!res.ok) throw new Error("AI结构化请求失败");
+      const data = await res.json();
+      const structured = data.choices[0].message.content.trim();
+      setResume(structured);
+      setPdfStructured(true);
+    } catch (e: unknown) {
+      // 如果AI结构化失败，退回原始文本
+      if (rawPdfText) {
+        setResume(rawPdfText);
+      }
+      setError("PDF结构化失败，已使用原始文本：" + (e instanceof Error ? e.message : "未知错误"));
+    } finally {
+      setPdfLoading(false);
+      setPdfStructuring(false);
+    }
+  };
+
+  const callAPI = async (prompt: string): Promise<string> => {
+    const res = await fetch(API_ENDPOINT, {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + HARDCODED_API_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: selectedModel, messages: [{ role: "user", content: prompt }], temperature: 0.3 })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error?.message || "请求失败: " + res.status);
+    }
+    const data = await res.json();
+    return data.choices[0].message.content.trim();
+  };
+
+  const analyze = async () => {
+    if (!resume.trim()) { setError("请输入或上传简历内容"); return; }
+    if (!jd.trim()) { setError("请输入职位描述 JD"); return; }
+    setLoading(true); setError(""); setResult(null);
+    setOptimizeSuggestions([]); setOptimizeRaw(""); setRewrittenResume("");
+    const prompt = fillPrompt(prompts.analyze, { resume, jd });
+    try {
+      let text = await callAPI(prompt);
+      text = text.replace(/```json|```/g, "").trim();
+      const parsed: AnalysisResult = JSON.parse(text);
+      setResult(parsed);
+      const titleMatch = jd.match(/职位[：:]\s*(.+)/);
+      const jobTitle = titleMatch ? titleMatch[1].trim().slice(0, 20) : jd.slice(0, 20) + "...";
+      setHistory(prev => [{
+        id: Date.now().toString(),
+        date: new Date().toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }),
+        jobTitle, score: parsed.score, resume, jd, result: parsed, model: selectedModel,
+        optimizeSuggestions: [],  // 分析时先存空，优化后自动更新
+        rewrittenResume: "",
+      }, ...prev].slice(0, 20));
+    } catch (e: unknown) {
+      setError("分析失败：" + (e instanceof Error ? e.message : "未知错误"));
+    } finally { setLoading(false); }
+  };
+
+  const getOptimizeSuggestion = async () => {
+    if (!result) return;
+    setOptimizeLoading(true);
+    const prompt = fillPrompt(prompts.optimize, { resume, jd, score: String(result.score), gaps: result.gaps.join("、") });
+    try {
+      let text = await callAPI(prompt);
+      text = text.replace(/```json|```/g, "").trim();
+      setOptimizeRaw(text);
+      const parsed: OptimizeSuggestion[] = JSON.parse(text);
+      setOptimizeSuggestions(parsed);
+      // 自动更新历史记录中的优化建议
+      setHistory(prev => prev.map(item =>
+        item.resume === resume && item.jd === jd ? { ...item, optimizeSuggestions: parsed } : item
+      ));
+    } catch (e: unknown) {
+      setOptimizeSuggestions([]);
+      setError("建议解析失败，已退回纯文本。如需卡片格式，请检查⚙️Prompt编辑中返回格式是否正确。");
+    } finally { setOptimizeLoading(false); }
+  };
+
+  const getRewrittenResume = async () => {
+    if (!result) return;
+    if (optimizeSuggestions.length === 0) {
+      setError("请先在「优化建议」页生成建议，AI改写将基于这些建议进行");
+      setActiveTab("optimize");
+      return;
+    }
+    setRewriteLoading(true);
+    const suggestionsText = optimizeSuggestions.map(s =>
+      `建议${s.index}【${s.title}】\n- 修改位置：${s.location}\n- 当前问题：${s.problem}\n- 修改操作：${s.action}\n- 预期效果：${s.impact}`
+    ).join("\n\n");
+    const prompt = fillPrompt(prompts.rewrite, { resume, jd, suggestions: suggestionsText });
+    try {
+      const text = await callAPI(prompt);
+      setRewrittenResume(text);
+      // 自动更新历史记录中的改写结果
+      setHistory(prev => prev.map(item =>
+        item.resume === resume && item.jd === jd ? { ...item, rewrittenResume: text } : item
+      ));
+    } catch (e: unknown) {
+      setError("简历改写失败：" + (e instanceof Error ? e.message : "未知错误"));
+    } finally { setRewriteLoading(false); }
+  };
+
+  // ── 简历文本 → 干净 HTML（去除所有 Markdown 符号）──
+
+
+  const exportToPdf = () => {
+    setPdfExporting(true);
+
+    const ci = (t: string) => t
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.+?)\*/g, "$1")
+      .replace(/`(.+?)`/g, "<code>$1</code>")
+      .replace(/#+\s*/g, "");
+
+    const buildBodyHtml = (text: string): { headerHtml: string; bodyHtml: string } => {
+      const lines = text.split("\n").map((l: string) => l.trim());
+      type Block = { title: string; lines: string[] };
+      const blocks: Block[] = [];
+      let cur: Block | null = null;
+
+      for (const line of lines) {
+        if (!line || /^---+$/.test(line)) continue;
+        if (/^#{1}\s+/.test(line) && !/^#{2,}/.test(line)) {
+          if (cur) blocks.push(cur);
+          cur = { title: line.replace(/^#+\s+/, ""), lines: [] };
+        } else {
+          if (cur) cur.lines.push(line);
+          else { if (!cur) { cur = { title: "__header__", lines: [] }; } cur.lines.push(line); }
+        }
+      }
+      if (cur) blocks.push(cur);
+
+      const isEmpty = (ls: string[]) => {
+        if (!ls.length) return true;
+        const j = ls.join("").replace(/\s/g, "");
+        if (j.length < 3) return true;
+        if (/^[（(][^）)]*[）)]$/.test(j)) return true;
+        if (/^(没有|省略|无|暂无|略|XXX|N\/A)$/.test(j)) return true;
+        return false;
+      };
+
+      let headerHtml = "";
+      let bodyHtml = "";
+
+      for (const block of blocks) {
+        // header块：未命名前置内容 OR "基本信息"分类
+        const isHeaderBlock = block.title === "__header__" || /^基本信息/.test(block.title);
+        if (isHeaderBlock) {
+          const allLines = block.lines;
+          // 找姓名行：有"姓名："前缀，或第一个不含冒号的短行
+          const nameMatch = allLines.find((l: string) =>
+            /^[-*\s]*姓名[：:]/.test(l) ||
+            (!/[：:]/.test(l) && l.replace(/^[-*#\s]+/,"").length > 0 && l.replace(/^[-*#\s]+/,"").length <= 8)
+          );
+          const nameText = nameMatch
+            ? nameMatch.replace(/^[-*#\s]+/,"").replace(/^姓名[：:]\s*/,"")
+            : "";
+          const metaLines = allLines
+            .filter((l: string) => l !== nameMatch)
+            .map((l: string) => l.replace(/^[-*\s]+/,"").replace(/^\d+\.\s+/,"").trim())
+            .filter((l: string) => l.length > 0);
+          headerHtml = `<div class="h-name">${ci(nameText)}</div><div class="h-meta">${metaLines.map((l: string) => ci(l)).join("<br>")}</div>`;
+          continue;
+        }
+        if (isEmpty(block.lines)) continue;
+        bodyHtml += `<div class="sec-title">${ci(block.title)}</div>`;
+        let inList = false;
+        for (const line of block.lines) {
+          const isLi = /^[-*]\s+/.test(line) || /^\d+\.\s+/.test(line);
+          const isH2 = /^#{2}\s+/.test(line) && !/^#{3,}/.test(line);
+          const isH3 = /^#{3}\s+/.test(line);
+          if (!isLi && inList) { bodyHtml += "</ul>"; inList = false; }
+          if (isH2) bodyHtml += `<div class="co-title">${ci(line.replace(/^#+\s+/, ""))}</div>`;
+          else if (isH3) bodyHtml += `<div class="proj-title">${ci(line.replace(/^#+\s+/, ""))}</div>`;
+          else if (isLi) {
+            const liText = ci(line.replace(/^[-*]\s+/, "").replace(/^\d+\.\s+/, "")).trim();
+            if (!liText) continue; // 跳过空行li
+            if (!inList) { bodyHtml += "<ul>"; inList = true; }
+            bodyHtml += `<li>${liText}</li>`;
+          }
+          else bodyHtml += `<p>${ci(line)}</p>`;
+        }
+        if (inList) bodyHtml += "</ul>";
+      }
+      return { headerHtml, bodyHtml };
+    };
+
+    const { headerHtml, bodyHtml } = buildBodyHtml(rewrittenResume);
+
+    const printWindow = window.open("", "_blank", "width=1000,height=860");
+    if (!printWindow) { setError("请允许弹出窗口以导出PDF"); setPdfExporting(false); return; }
+
+    printWindow.document.write(`<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>优化简历</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#dde1e8;font-family:"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif}
+
+  #toolbar{
+    position:fixed;top:0;left:0;right:0;z-index:999;
+    background:#1e293b;color:#e2e8f0;
+    padding:7px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    font-size:12px;box-shadow:0 2px 10px #0009;
+  }
+  #toolbar .ttl{font-weight:700;font-size:13px}
+  #toolbar button{padding:5px 11px;border-radius:5px;border:none;cursor:pointer;font-size:11px;font-weight:600}
+  .btn-blue{background:linear-gradient(135deg,#3b82f6,#6366f1);color:#fff}
+  .btn-gray{background:#334155;color:#cbd5e1}
+  .btn-green{background:linear-gradient(135deg,#059669,#10b981);color:#fff}
+  .btn-orange{background:linear-gradient(135deg,#d97706,#f59e0b);color:#fff}
+  .fmt-btn{padding:3px 7px;border-radius:4px;border:1px solid #475569;background:#1e293b;color:#e2e8f0;cursor:pointer;font-size:12px;line-height:1.4}
+  .fmt-btn:hover{background:#334155}
+  #scale-wrap{display:flex;align-items:center;gap:5px;margin-left:auto}
+  #scale-wrap label{font-size:10px;color:#94a3b8}
+  #scale-inp{width:42px;padding:3px 4px;border-radius:4px;border:1px solid #475569;background:#0f172a;color:#e2e8f0;font-size:11px;text-align:center}
+  #page-info{font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px;background:#0f172a}
+  #edit-tip{font-size:10px;color:#fbbf24;display:none}
+
+  #page-wrap{margin-top:48px;padding:20px 0 40px;display:flex;justify-content:center}
+
+  /* ── A4纸 ── */
+  #resume-paper{width:210mm;background:#fff;box-shadow:0 4px 20px #0004;position:relative}
+  #paper-inner{padding:10mm 13mm 10mm 13mm}
+
+  /* ── 顶部header：左侧居中文字 + 右上角绝对定位照片 ── */
+  #header-block{
+    display:flex;
+    flex-direction:row;
+    align-items:center;
+    justify-content:space-between;
+    padding-bottom:6px;
+    margin-bottom:6px;
+    border-bottom:2px solid #111;
+    gap:5mm;
+  }
+  #header-text{
+    flex:1;
+    text-align:center;
+  }
+  .h-name{font-size:18pt;font-weight:800;letter-spacing:4px;margin-bottom:4px}
+  .h-meta{font-size:8pt;color:#333;line-height:1.9}
+
+  /* 照片：flex右侧同行，不再绝对定位 */
+  #photo-wrap{
+    flex-shrink:0;
+    display:flex;flex-direction:column;align-items:center;
+  }
+  #photo-area{
+    width:24mm;height:31mm;
+    border:1.5px dashed #bbb;border-radius:3px;
+    background:#f4f6f9;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    cursor:pointer;overflow:hidden;position:relative;
+  }
+  #photo-area:hover{border-color:#3b82f6;background:#eff6ff}
+  #photo-img{width:100%;height:100%;object-fit:cover;display:none}
+  .ph-hint{display:flex;flex-direction:column;align-items:center;gap:2px;pointer-events:none}
+  .ph-icon{font-size:14px}
+  .ph-txt{font-size:6pt;color:#888;text-align:center;line-height:1.4}
+  #photo-del{display:none;position:absolute;top:2px;right:2px;background:#ef4444;color:#fff;border:none;border-radius:50%;width:14px;height:14px;font-size:9px;cursor:pointer;line-height:14px;text-align:center;z-index:5}
+  #photo-file{display:none}
+  #photo-tip{font-size:6.5pt;color:#3b82f6;margin-top:2px;cursor:pointer;text-align:center}
+
+  /* ── 正文 ── */
+  .sec-title{font-weight:800;border-bottom:1.5px solid #111;padding-bottom:1px;margin:7px 0 3px;letter-spacing:1.5px}
+  .co-title{font-weight:700;margin:4px 0 1px}
+  .proj-title{font-weight:700;margin:3px 0 1px}
+  p{margin:1px 0;color:#222}
+  ul{padding-left:13px;margin:1px 0 2px}
+  li{color:#222;margin-bottom:1px}
+  strong{font-weight:700}
+  code{background:#f3f4f6;padding:0 3px;border-radius:2px}
+
+  /* ── 可编辑高亮 ── */
+  [contenteditable="true"]{outline:none;caret-color:#3b82f6}
+  #header-text[contenteditable="true"],
+  #resume-body[contenteditable="true"]{
+    outline:none;
+    caret-color:#3b82f6;
+    border-radius:4px;
+  }
+  #resume-body[contenteditable="true"]:focus,
+  #header-text[contenteditable="true"]:focus{
+    box-shadow:0 0 0 2px rgba(59,130,246,0.15);
+  }
+
+  @media print{
+    #toolbar,.ph-hint,#photo-tip,#photo-del{display:none!important}
+    #photo-area{border:none;background:transparent;cursor:default}
+    #photo-img{display:block!important}
+    #page-wrap{margin-top:0;padding:0}
+    html,body{background:white}
+    #resume-paper{box-shadow:none}
+    [contenteditable]{outline:none!important;background:none!important;box-shadow:none!important;cursor:default!important}
+    #__sel_highlight__{background:transparent!important}
+    @page{margin:0;size:A4}
+  }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <span class="ttl">📄 简历预览</span>
+  <span id="page-info">计算中...</span>
+
+  <!-- 字号压缩 -->
+  <div id="scale-wrap">
+    <label>字号</label>
+    <input type="number" id="scale-inp" value="9.5" min="6" max="11" step="0.5">
+    <span style="color:#94a3b8;font-size:10px">pt</span>
+    <button class="btn-gray" onclick="autoFit(1)" title="自动缩小字号使内容压缩至1页">🗜 压缩至1页</button>
+    <button class="btn-gray" onclick="applySize(9.5)" title="还原到默认字号 9.5pt">↺ 还原字号</button>
+  </div>
+
+  <!-- 编辑开关 -->
+  <button class="btn-orange" onclick="toggleEdit()" id="edit-btn">✏️ 开启编辑</button>
+
+  <!-- 富文本格式工具栏（编辑模式时显示） -->
+  <div id="fmt-bar" style="display:none;align-items:center;gap:4px;background:#0f172a;padding:3px 8px;border-radius:6px;border:1px solid #334155">
+    <span style="font-size:10px;color:#64748b">格式：</span>
+    <button class="fmt-btn" onmousedown="event.preventDefault()" onclick="execFmt('bold')" title="加粗 Ctrl+B"><b style="font-size:12px">B</b></button>
+    <button class="fmt-btn" onmousedown="event.preventDefault()" onclick="execFmt('italic')" title="斜体 Ctrl+I"><i style="font-size:12px">I</i></button>
+    <button class="fmt-btn" onmousedown="event.preventDefault()" onclick="execFmt('underline')" title="下划线 Ctrl+U"><u style="font-size:12px">U</u></button>
+    <input type="number" id="fsize-inp" min="6" max="72" step="0.5" placeholder="pt"
+      onfocus="saveSelectionNow()"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();applyFontSize();this.blur();}"
+      style="width:52px;padding:2px 5px;border-radius:4px;border:1px solid #475569;background:#1e293b;color:#e2e8f0;font-size:11px;text-align:center"
+      title="选中文字后点击此处输入字号，按Enter应用">
+    <button class="fmt-btn" onmousedown="event.preventDefault()" onclick="applyFontSize()" title="应用字号（也可按Enter）" style="font-size:11px;padding:3px 8px">✓</button>
+    <span style="font-size:10px;color:#64748b">pt</span>
+    <button class="fmt-btn" onmousedown="event.preventDefault()" onclick="execFmt('removeFormat')" title="清除所选格式" style="font-size:10px">✕格式</button>
+  </div>
+
+  <!-- 导出 -->
+  <button class="btn-blue" onclick="exportPdf()" title="导出为PDF文件">📥 导出PDF</button>
+
+
+  <span id="edit-tip">✏️ 编辑中：可自由增删改、跨行选择，支持格式调整，确认后关闭编辑再导出</span>
+</div>
+
+<div id="page-wrap">
+<div id="resume-paper">
+<div id="paper-inner">
+
+  <!-- Header：居中姓名信息 + 右上角照片 -->
+  <div id="header-block">
+    <div id="header-text">
+      ${headerHtml}
+    </div>
+    <div id="photo-wrap">
+      <div id="photo-area" onclick="triggerPhoto()">
+        <img id="photo-img" src="" alt="证件照">
+        <div class="ph-hint">
+          <span class="ph-icon">📷</span>
+          <span class="ph-txt">点击上传<br>证件照</span>
+        </div>
+        <button id="photo-del" onclick="delPhoto(event)">×</button>
+      </div>
+      <div id="photo-tip" onclick="triggerPhoto()">更换照片</div>
+    </div>
+  </div>
+
+  <input type="file" id="photo-file" accept="image/*">
+
+  <!-- 正文 -->
+  <div id="resume-body">
+${bodyHtml}
+  </div>
+
+</div>
+</div>
+</div>
+
+<script>
+  const paper    = document.getElementById('resume-paper');
+  const inner    = document.getElementById('paper-inner');
+  const scaleInp = document.getElementById('scale-inp');
+  const pageInfo = document.getElementById('page-info');
+  const photoImg = document.getElementById('photo-img');
+  const photoFile= document.getElementById('photo-file');
+  const photoDel = document.getElementById('photo-del');
+  const A4_PX    = 297*(96/25.4);
+  let editMode   = false;
+
+  // ── 字号压缩（真实修改字体，打印生效） ──
+  function applySize(pt) {
+    pt = Math.max(6, Math.min(11, pt));
+    scaleInp.value = pt;
+    const r = inner;
+    r.style.fontSize   = pt+'pt';
+    r.style.lineHeight = pt<=7.5?'1.4':pt<=8.5?'1.5':'1.6';
+    const ratio = pt/9.5;
+    document.querySelectorAll('.sec-title').forEach(el=>{
+      el.style.margin = (7*ratio).toFixed(1)+'px 0 '+(3*ratio).toFixed(1)+'px';
+      el.style.fontSize = (pt+0.5)+'pt';
+    });
+    document.querySelectorAll('.co-title,.proj-title').forEach(el=>{
+      el.style.margin = (4*ratio).toFixed(1)+'px 0 '+(1*ratio).toFixed(1)+'px';
+      el.style.fontSize = pt+'pt';
+    });
+    document.querySelectorAll('p,li').forEach(el=>{
+      el.style.fontSize=(pt-0.5)+'pt';
+      el.style.marginBottom=(1.5*ratio).toFixed(1)+'px';
+    });
+    document.querySelectorAll('ul').forEach(el=>{ el.style.margin='1px 0 '+(2*ratio).toFixed(1)+'px'; });
+    inner.style.padding=(10*ratio).toFixed(1)+'mm '+(13*ratio).toFixed(1)+'mm';
+    updateInfo();
+  }
+
+  function updateInfo() {
+    const pages = Math.ceil(paper.scrollHeight/A4_PX);
+    pageInfo.textContent = '当前约'+pages+'页';
+    pageInfo.style.color = pages>2?'#f87171':pages===2?'#facc15':'#4ade80';
+  }
+
+  function autoFit(maxP) {
+    const maxH = A4_PX*maxP;
+    let lo=6,hi=9.5,best=6;
+    for(let i=0;i<25;i++){
+      const mid=(lo+hi)/2;
+      applySize(mid);
+      if(paper.scrollHeight<=maxH){best=mid;lo=mid;}
+      else hi=mid;
+      if(hi-lo<0.05)break;
+    }
+    applySize(Math.floor(best*10)/10);
+  }
+
+  scaleInp.addEventListener('change',()=>applySize(parseFloat(scaleInp.value)||9.5));
+
+  // ── 可编辑模式 ──
+  function toggleEdit() {
+    editMode = !editMode;
+    const btn = document.getElementById('edit-btn');
+    const tip = document.getElementById('edit-tip');
+    // 把整个简历内容区（header-text + resume-body）设为一个整体可编辑块
+    const editZones = [
+      document.getElementById('header-text'),
+      document.getElementById('resume-body')
+    ];
+    editZones.forEach(el => {
+      if (!el) return;
+      el.contentEditable = editMode ? 'true' : 'false';
+      el.style.outline = 'none';
+      if (editMode) {
+        el.style.background = 'rgba(59,130,246,0.03)';
+        el.style.borderRadius = '4px';
+        el.style.cursor = 'text';
+        el.style.minHeight = '20px';
+      } else {
+        el.style.background = '';
+        el.style.cursor = '';
+      }
+    });
+    const fmtBar = document.getElementById('fmt-bar');
+    btn.textContent  = editMode ? '✅ 关闭编辑' : '✏️ 开启编辑';
+    btn.className    = editMode ? 'btn-blue' : 'btn-orange';
+    tip.style.display= editMode ? 'block' : 'none';
+    if (fmtBar) fmtBar.style.display = editMode ? 'flex' : 'none';
+    if (editMode) {
+      const body = document.getElementById('resume-body');
+      if (body) body.focus();
+    }
+  }
+
+  // ── 照片上传 ──
+  function triggerPhoto(){photoFile.click()}
+
+  photoFile.addEventListener('change',e=>{
+    const file=e.target.files[0];
+    if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      photoImg.src=ev.target.result;
+      photoImg.style.display='block';
+      document.querySelector('.ph-hint').style.display='none';
+      photoDel.style.display='block';
+      document.getElementById('photo-area').style.border='none';
+      document.getElementById('photo-area').style.background='transparent';
+      document.getElementById('photo-tip').style.display='block';
+      updateInfo();
+    };
+    reader.readAsDataURL(file);
+  });
+
+  function delPhoto(e){
+    e.stopPropagation();
+    photoImg.src='';photoImg.style.display='none';
+    document.querySelector('.ph-hint').style.display='flex';
+    photoDel.style.display='none';
+    document.getElementById('photo-area').style.border='1.5px dashed #bbb';
+    document.getElementById('photo-area').style.background='#f4f6f9';
+  }
+
+  window.onload=()=>applySize(9.5);
+
+  // ── 富文本格式命令 ──
+  function execFmt(cmd) {
+    document.execCommand(cmd, false, null);
+  }
+  let savedRange = null;
+  let highlightSpan = null; // 自定义高亮 span
+
+  // 清除自定义高亮，把内容解包回去
+  function clearHighlight() {
+    if (highlightSpan && highlightSpan.parentNode) {
+      const parent = highlightSpan.parentNode;
+      while (highlightSpan.firstChild) {
+        parent.insertBefore(highlightSpan.firstChild, highlightSpan);
+      }
+      parent.removeChild(highlightSpan);
+      parent.normalize();
+    }
+    highlightSpan = null;
+  }
+
+  // 用自定义高亮 span 包裹选中区域，视觉上保持高亮
+  function applyHighlight(range) {
+    clearHighlight();
+    highlightSpan = document.createElement('span');
+    highlightSpan.id = '__sel_highlight__';
+    highlightSpan.style.cssText = 'background:rgba(59,130,246,0.25);border-radius:2px;';
+    try {
+      range.surroundContents(highlightSpan);
+    } catch(e) {
+      // 跨节点时克隆内容放入高亮span
+      highlightSpan.appendChild(range.extractContents());
+      range.insertNode(highlightSpan);
+    }
+  }
+
+  // 监听编辑区选区变化 - 实时保存 + 显示自定义高亮
+  document.addEventListener('mouseup', () => {
+    const sel = window.getSelection();
+    const body = document.getElementById('resume-body');
+    const header = document.getElementById('header-text');
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+    const anchor = sel.anchorNode;
+    if (!body || (!body.contains(anchor) && !(header && header.contains(anchor)))) return;
+    // 保存选区
+    savedRange = sel.getRangeAt(0).cloneRange();
+    // 清除旧高亮（不应用）
+    if (highlightSpan) clearHighlight();
+  });
+
+  function saveSelectionNow() {
+    // 输入框获焦时：把当前选区换成自定义高亮，这样视觉上高亮不会消失
+    const sel = window.getSelection();
+    if (savedRange) {
+      // 重新从 savedRange 应用高亮
+      applyHighlight(savedRange.cloneRange());
+      sel.removeAllRanges(); // 清除原生选区（高亮已由 span 模拟）
+    }
+  }
+
+  function applyFontSize() {
+    const inp = document.getElementById('fsize-inp');
+    const pt = parseFloat(inp.value);
+    if (!pt || pt < 1) return;
+    if (!highlightSpan && !savedRange) {
+      alert('请先选中要修改的文字');
+      return;
+    }
+
+    if (highlightSpan && highlightSpan.parentNode) {
+      // 直接修改高亮 span 内所有文字节点的字号
+      highlightSpan.style.fontSize = pt + 'pt';
+      // 保持高亮，不解包，让用户可以反复修改
+      // 更新 savedRange 指向当前高亮 span
+      const newRange = document.createRange();
+      newRange.selectNodeContents(highlightSpan);
+      savedRange = newRange;
+    }
+    // 不清空 inp.value，方便微调
+    // 不清空 savedRange 和 highlightSpan，允许反复修改
+  }
+
+  // 点击编辑区空白处或关闭编辑时解除高亮
+  document.addEventListener('mousedown', (e) => {
+    const inp = document.getElementById('fsize-inp');
+    const fmtBar = document.getElementById('fmt-bar');
+    // 如果点击的是格式栏内的元素，不解除高亮
+    if (fmtBar && fmtBar.contains(e.target)) return;
+    // 如果点击的是编辑区，先解除旧高亮（mouseup 会重新建立新选区）
+    const body = document.getElementById('resume-body');
+    const header = document.getElementById('header-text');
+    if (body && (body.contains(e.target) || (header && header.contains(e.target)))) {
+      clearHighlight();
+      savedRange = null;
+    }
+  });
+
+  // ── 导出PDF（打印） ──
+  function exportPdf() {
+    // 关闭编辑模式
+    if (editMode) toggleEdit();
+    // 短暂延迟确保 contenteditable 状态清除
+    setTimeout(() => window.print(), 100);
+  }
+
+
+<\/script>
+</body>
+</html>`);
+    printWindow.document.close();
+    setPdfExporting(false);
+  };
+
+  const loadFromHistory = (item: HistoryItem) => {
+    setResume(item.resume); setJd(item.jd); setResult(item.result);
+    setSelectedModel(item.model);
+    setOptimizeSuggestions(item.optimizeSuggestions || []);
+    setOptimizeRaw("");
+    setRewrittenResume(item.rewrittenResume || "");
+    setActiveTab("input");
+  };
+
+  const scoreColor = result ? (result.score >= 80 ? "#4ade80" : result.score >= 60 ? "#facc15" : "#f87171") : "#60a5fa";
+  const suggestionText = result
+    ? result.score >= 80 ? "强烈建议投递 🚀" : result.score >= 60 ? "可以尝试投递 ✅" : "建议优化后再投 ⚠️"
+    : "";
+
+  const TABS = [
+    { id: "input", label: "📝 分析" },
+    { id: "optimize", label: "💡 优化建议" + (optimizeSuggestions.length > 0 ? ` (${optimizeSuggestions.length})` : "") },
+    { id: "rewrite", label: "✏️ AI改写简历" },
+    { id: "history", label: "🕘 历史" + (history.length > 0 ? ` (${history.length})` : "") },
+    { id: "prompts", label: "⚙️ Prompt 编辑" },
+  ];
+
+  const inputStyle = {
+    width: "100%", background: "#0f172a", border: "1px solid #1e293b",
+    borderRadius: 12, padding: "16px", color: "#e2e8f0", fontSize: 13,
+    lineHeight: 1.7, resize: "vertical" as const, outline: "none",
+    boxSizing: "border-box" as const, fontFamily: "inherit"
+  };
+
+  const stepBadge = (done: boolean) => ({
+    width: 24, height: 24, borderRadius: "50%",
+    background: done ? "#14532d" : "#1e293b",
+    color: done ? "#4ade80" : "#64748b",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    fontSize: 11, fontWeight: 700, flexShrink: 0,
+  } as React.CSSProperties);
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#020817", fontFamily: "'Inter', 'PingFang SC', sans-serif", color: "#e2e8f0" }}>
+
+      <div style={{ borderBottom: "1px solid #1e293b", padding: "16px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#020817", position: "sticky", top: 0, zIndex: 100 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>📄</div>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 16 }}>JobFit</div>
+            <div style={{ fontSize: 11, color: "#475569", letterSpacing: 1 }}>AI 简历匹配分析器</div>
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 12, color: "#64748b" }}>切换模型：</span>
+          {MODELS.map((m) => (
+            <button key={m.id} onClick={() => setSelectedModel(m.id)} title={m.desc} style={{
+              padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer",
+              border: selectedModel === m.id ? "1px solid #3b82f6" : "1px solid #1e293b",
+              background: selectedModel === m.id ? "#1e3a5f" : "#0f172a",
+              color: selectedModel === m.id ? "#60a5fa" : "#64748b",
+            }}>{m.label}</button>
+          ))}
+        </div>
+      </div>
+
+      {error && (
+        <div style={{ margin: "16px 32px", padding: "12px 16px", background: "#450a0a", border: "1px solid #dc262644", borderRadius: 10, color: "#f87171", fontSize: 13, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>⚠️ {error}</span>
+          <button onClick={() => setError("")} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 18 }}>×</button>
+        </div>
+      )}
+
+      <div style={{ padding: "20px 32px 0" }}>
+        <div style={{ display: "flex", gap: 4, borderBottom: "1px solid #1e293b", marginBottom: 24, overflowX: "auto" }}>
+          {TABS.map((tab) => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+              padding: "10px 18px", border: "none", background: "none", whiteSpace: "nowrap",
+              color: activeTab === tab.id ? "#60a5fa" : "#475569",
+              fontWeight: activeTab === tab.id ? 700 : 400,
+              borderBottom: activeTab === tab.id ? "2px solid #3b82f6" : "2px solid transparent",
+              cursor: "pointer", fontSize: 13,
+            }}>{tab.label}</button>
+          ))}
+        </div>
+
+        {/* 分析页 */}
+        {activeTab === "input" && (
+          <div style={{ paddingBottom: 40 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <label style={{ fontSize: 12, color: "#64748b", letterSpacing: 1, textTransform: "uppercase" }}>👤 我的简历</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {pdfFileName && !pdfStructuring && pdfStructured && (
+                      <span style={{ fontSize: 11, color: "#4ade80", background: "#14532d33", padding: "2px 8px", borderRadius: 6, border: "1px solid #16a34a44" }}>
+                        ✓ AI结构化完成
+                      </span>
+                    )}
+                    {pdfStructuring && (
+                      <span style={{ fontSize: 11, color: "#facc15", display: "flex", alignItems: "center", gap: 4 }}>
+                        <Spinner /> AI整理结构中...
+                      </span>
+                    )}
+                    {pdfFileName && !pdfStructuring && !pdfStructured && (
+                      <span style={{ fontSize: 11, color: "#94a3b8" }}>✓ {pdfFileName}</span>
+                    )}
+                    <button onClick={() => fileInputRef.current?.click()} disabled={pdfLoading || pdfStructuring}
+                      style={{ background: "#1e3a5f", border: "1px solid #2563eb44", borderRadius: 6, padding: "4px 12px", color: "#60a5fa", fontSize: 11, fontWeight: 600, cursor: (pdfLoading || pdfStructuring) ? "not-allowed" : "pointer", opacity: (pdfLoading || pdfStructuring) ? 0.6 : 1 }}>
+                      {pdfLoading ? "解析中..." : pdfStructuring ? "整理中..." : "📂 导入简历"}
+                    </button>
+                  </div>
+                </div>
+                <input ref={fileInputRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.bmp" style={{ display: "none" }}
+                  onChange={(e) => { if (e.target.files?.[0]) handlePdfUpload(e.target.files[0]); }} />
+                <div onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files?.[0]) handlePdfUpload(e.dataTransfer.files[0]); }}
+                  style={{ position: "relative" }}>
+                  <textarea value={resume} onChange={(e) => { setResume(e.target.value); setPdfFileName(""); setPdfStructured(false); }}
+                    placeholder="粘贴简历文字，或点击上方按钮导入简历（支持PDF/图片）..."
+                    style={{ ...inputStyle, height: 320, background: dragOver ? "#1e293b" : "#0f172a", border: dragOver ? "2px dashed #3b82f6" : pdfStructured ? "1px solid #16a34a44" : "1px solid #1e293b" }} />
+                  {dragOver && (
+                    <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "#1e293bcc", borderRadius: 12, pointerEvents: "none" }}>
+                      <span style={{ color: "#60a5fa", fontWeight: 700, fontSize: 15 }}>📂 松开鼠标导入简历</span>
+                    </div>
+                  )}
+                  {pdfStructuring && (
+                    <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#020817cc", borderRadius: 12, pointerEvents: "none", gap: 12 }}>
+                      <Spinner />
+                      <div style={{ fontSize: 13, color: "#facc15", fontWeight: 600 }}>AI 正在识别简历结构...</div>
+                      <div style={{ fontSize: 11, color: "#64748b" }}>解决PDF乱码问题，请稍候</div>
+                    </div>
+                  )}
+                </div>
+                {/* 提示信息 */}
+                <div style={{ fontSize: 11, color: "#334155", marginTop: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span>{pdfStructured ? "✨ 已由AI重新整理结构，可直接使用" : "支持直接拖拽PDF到此区域"}</span>
+                  {pdfPreviewUrl && pdfStructured && (
+                    <button
+                      onClick={() => setShowPdfModal(true)}
+                      style={{ background: "none", border: "none", color: "#60a5fa", fontSize: 11, cursor: "pointer", textDecoration: "underline" }}>
+                      📄 查看原始PDF
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: "#64748b", letterSpacing: 1, textTransform: "uppercase", display: "block", marginBottom: 8 }}>💼 职位描述 JD</label>
+                <textarea value={jd} onChange={(e) => setJd(e.target.value)} placeholder="粘贴招聘JD..."
+                  style={{ ...inputStyle, height: 320 }} />
+              </div>
+            </div>
+
+            <div style={{ textAlign: "center", marginBottom: 32 }}>
+              <div style={{ marginBottom: 12, fontSize: 12, color: "#475569" }}>
+                当前模型：<span style={{ color: "#60a5fa", fontWeight: 600 }}>{MODELS.find(m => m.id === selectedModel)?.label}</span>
+                {"　|　"}{MODELS.find(m => m.id === selectedModel)?.desc}
+              </div>
+              <button onClick={analyze} disabled={loading} style={{
+                background: loading ? "#1e293b" : "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+                border: "none", borderRadius: 12, padding: "14px 48px", color: "white", fontSize: 15, fontWeight: 700,
+                cursor: loading ? "not-allowed" : "pointer", boxShadow: loading ? "none" : "0 0 30px #3b82f644"
+              }}>
+                {loading ? <span style={{ display: "flex", alignItems: "center", gap: 10 }}><Spinner />AI 分析中...</span> : "✨ 开始匹配分析"}
+              </button>
+            </div>
+
+            {result && (
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                  <div style={{ flex: 1, height: 1, background: "#1e293b" }} />
+                  <span style={{ fontSize: 13, color: "#475569", whiteSpace: "nowrap" }}>📊 分析结果</span>
+                  <div style={{ flex: 1, height: 1, background: "#1e293b" }} />
+                </div>
+                <div style={{ background: "linear-gradient(135deg, #0f172a, #1e1b4b)", border: "1px solid #312e81", borderRadius: 20, padding: "32px", marginBottom: 20, display: "flex", alignItems: "center", gap: 40 }}>
+                  <ScoreRing score={result.score} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: scoreColor, marginBottom: 8 }}>{suggestionText}</div>
+                    <div style={{ fontSize: 14, color: "#94a3b8", lineHeight: 1.7 }}>{result.suggestion}</div>
+                    <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+                      <button onClick={() => setActiveTab("optimize")} style={{ background: "#1e3a5f", border: "1px solid #2563eb44", borderRadius: 8, padding: "8px 18px", color: "#60a5fa", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                        💡 获取优化建议
+                      </button>
+                      <button onClick={() => setActiveTab("rewrite")} style={{ background: "#14532d33", border: "1px solid #16a34a44", borderRadius: 8, padding: "8px 18px", color: "#4ade80", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                        ✏️ AI改写简历
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <Section title="所需技能" icon="🛠"><div>{result.skills?.map((s, i) => <Tag key={i} text={s} color="blue" />)}</div></Section>
+                  <Section title="主要职责" icon="📋"><div>{result.responsibilities?.map((r, i) => <Tag key={i} text={r} color="yellow" />)}</div></Section>
+                  <Section title="任职要求" icon="📌"><div>{result.requirements?.map((r, i) => <Tag key={i} text={r} color="blue" />)}</div></Section>
+                  <Section title="你的优势亮点" icon="⭐">
+                    <ul style={{ margin: 0, padding: "0 0 0 16px" }}>{result.strengths?.map((s, i) => <li key={i} style={{ fontSize: 13, marginBottom: 6, color: "#cbd5e1" }}>{s}</li>)}</ul>
+                  </Section>
+                  <Section title="待补充的差距" icon="⚡">
+                    <ul style={{ margin: 0, padding: "0 0 0 16px" }}>{result.gaps?.map((g, i) => <li key={i} style={{ fontSize: 13, marginBottom: 6, color: "#cbd5e1" }}>{g}</li>)}</ul>
+                  </Section>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 优化建议页 */}
+        {activeTab === "optimize" && (
+          <div style={{ paddingBottom: 40 }}>
+            {!result ? (
+              <div style={{ textAlign: "center", padding: "80px 0", color: "#475569" }}>
+                <div style={{ fontSize: 48, marginBottom: 16 }}>💡</div>
+                <div>请先完成匹配分析</div>
+                <button onClick={() => setActiveTab("input")} style={{ marginTop: 16, background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: "8px 20px", color: "#94a3b8", cursor: "pointer", fontSize: 13 }}>去分析</button>
+              </div>
+            ) : (
+              <div>
+                <div style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 16, padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 20 }}>💡</span>
+                    <span style={{ fontWeight: 700, fontSize: 15 }}>简历优化建议</span>
+                    <ScoreBadge score={result.score} />
+                    {optimizeSuggestions.length > 0 && <span style={{ fontSize: 12, color: "#64748b" }}>共 {optimizeSuggestions.length} 条</span>}
+                  </div>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    {optimizeSuggestions.length > 0 && (
+                      <button onClick={() => setActiveTab("rewrite")} style={{ background: "#14532d33", border: "1px solid #16a34a44", borderRadius: 8, padding: "8px 14px", color: "#4ade80", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                        ✏️ 基于此建议改写 →
+                      </button>
+                    )}
+                    <button onClick={getOptimizeSuggestion} disabled={optimizeLoading} style={{
+                      background: optimizeLoading ? "#1e293b" : "linear-gradient(135deg, #3b82f6, #6366f1)",
+                      border: "none", borderRadius: 8, padding: "8px 20px", color: "white", fontSize: 13, fontWeight: 600, cursor: optimizeLoading ? "not-allowed" : "pointer"
+                    }}>
+                      {optimizeLoading ? <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Spinner />生成中...</span>
+                        : optimizeSuggestions.length > 0 ? "重新生成" : "生成优化建议"}
+                    </button>
+                  </div>
+                </div>
+                {optimizeSuggestions.length > 0 ? (
+                  <div>
+                    <div style={{ display: "flex", gap: 16, marginBottom: 16, fontSize: 12, color: "#64748b", alignItems: "center" }}>
+                      <span>优先级：</span>
+                      {[{ label: "高", color: "#f87171" }, { label: "中", color: "#facc15" }, { label: "低", color: "#60a5fa" }].map(p => (
+                        <span key={p.label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ width: 8, height: 8, borderRadius: 2, background: p.color, display: "inline-block" }} />{p.label}
+                        </span>
+                      ))}
+                      <span style={{ color: "#475569" }}>｜ 修改位置以</span>
+                      <span style={{ color: "#f87171", fontWeight: 700 }}>红色</span>
+                      <span style={{ color: "#475569" }}>标注</span>
+                    </div>
+                    {optimizeSuggestions.map((item, i) => <OptimizeCard key={i} item={item} />)}
+                  </div>
+                ) : optimizeRaw ? (
+                  <div style={{ fontSize: 13, color: "#cbd5e1", lineHeight: 1.9, whiteSpace: "pre-wrap", background: "#0a0f1e", borderRadius: 10, padding: "16px 20px", border: "1px solid #1e293b" }}>{optimizeRaw}</div>
+                ) : (
+                  <div style={{ color: "#475569", fontSize: 13, textAlign: "center", padding: "40px 0" }}>点击"生成优化建议"，AI将返回结构化改进建议卡片</div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* AI改写简历页 */}
+        {activeTab === "rewrite" && (
+          <div style={{ paddingBottom: 40 }}>
+            {!result ? (
+              <div style={{ textAlign: "center", padding: "80px 0", color: "#475569" }}>
+                <div style={{ fontSize: 48, marginBottom: 16 }}>✏️</div>
+                <div>请先完成匹配分析</div>
+                <button onClick={() => setActiveTab("input")} style={{ marginTop: 16, background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: "8px 20px", color: "#94a3b8", cursor: "pointer", fontSize: 13 }}>去分析</button>
+              </div>
+            ) : (
+              <div>
+                <div style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 12, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" as const }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={stepBadge(true)}>✓</span>
+                    <span style={{ fontSize: 13, color: "#4ade80" }}>1. 完成匹配分析</span>
+                  </div>
+                  <span style={{ color: "#334155", fontSize: 16 }}>→</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={stepBadge(optimizeSuggestions.length > 0)}>{optimizeSuggestions.length > 0 ? "✓" : "2"}</span>
+                    <span style={{ fontSize: 13, color: optimizeSuggestions.length > 0 ? "#4ade80" : "#64748b" }}>
+                      {optimizeSuggestions.length > 0 ? `已生成 ${optimizeSuggestions.length} 条优化建议` : "需生成优化建议"}
+                    </span>
+                    {optimizeSuggestions.length === 0 && (
+                      <button onClick={() => setActiveTab("optimize")} style={{ background: "#1e3a5f", border: "1px solid #2563eb44", borderRadius: 6, padding: "3px 10px", color: "#60a5fa", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>去生成 →</button>
+                    )}
+                  </div>
+                  <span style={{ color: "#334155", fontSize: 16 }}>→</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={stepBadge(!!rewrittenResume)}>3</span>
+                    <span style={{ fontSize: 13, color: rewrittenResume ? "#4ade80" : "#64748b" }}>AI改写简历</span>
+                  </div>
+                </div>
+
+                <div style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 16, padding: "20px 24px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 20 }}>✏️</span>
+                      <span style={{ fontWeight: 700, fontSize: 15 }}>AI 智能改写简历</span>
+                    </div>
+                    <button onClick={getRewrittenResume} disabled={rewriteLoading || optimizeSuggestions.length === 0} style={{
+                      background: (rewriteLoading || optimizeSuggestions.length === 0) ? "#1e293b" : "linear-gradient(135deg, #059669, #10b981)",
+                      border: "none", borderRadius: 8, padding: "8px 20px",
+                      color: optimizeSuggestions.length === 0 ? "#475569" : "white",
+                      fontSize: 13, fontWeight: 600, cursor: (rewriteLoading || optimizeSuggestions.length === 0) ? "not-allowed" : "pointer"
+                    }}>
+                      {rewriteLoading ? <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Spinner />改写中...</span> : rewrittenResume ? "重新改写" : "开始AI改写"}
+                    </button>
+                  </div>
+                  <div style={{ fontSize: 12, color: "#475569", marginBottom: 18 }}>
+                    {optimizeSuggestions.length > 0
+                      ? `将严格基于已生成的 ${optimizeSuggestions.length} 条优化建议改写，保留真实经历`
+                      : "⚠ 请先完成第2步「生成优化建议」"}
+                  </div>
+                  {rewrittenResume ? (
+                    <div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                        <div>
+                          <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8 }}>原始简历</div>
+                          <textarea readOnly value={resume} style={{ ...inputStyle, height: 480, color: "#64748b", resize: "none" }} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 12, color: "#4ade80", marginBottom: 8 }}>✨ 基于优化建议改写版本</div>
+                          <textarea readOnly value={rewrittenResume} style={{ ...inputStyle, height: 480, border: "1px solid #16a34a44", resize: "none" }} />
+                        </div>
+                      </div>
+                      <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" as const }}>
+                        <button onClick={() => { setResume(rewrittenResume); setActiveTab("input"); }} style={{ background: "linear-gradient(135deg, #059669, #10b981)", border: "none", borderRadius: 8, padding: "10px 24px", color: "white", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                          采用此版本并重新分析
+                        </button>
+                        <button onClick={() => navigator.clipboard.writeText(rewrittenResume)} style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: "10px 24px", color: "#94a3b8", fontSize: 13, cursor: "pointer" }}>
+                          📋 复制优化版本
+                        </button>
+                        <button
+                          onClick={exportToPdf}
+                          disabled={pdfExporting}
+                          style={{
+                            background: pdfExporting ? "#1e293b" : "linear-gradient(135deg, #dc2626, #ef4444)",
+                            border: "none", borderRadius: 8, padding: "10px 24px",
+                            color: "white", fontSize: 13, fontWeight: 600,
+                            cursor: pdfExporting ? "not-allowed" : "pointer",
+                            display: "flex", alignItems: "center", gap: 6,
+                          }}>
+                          {pdfExporting ? <><Spinner />生成中...</> : "📄 导出 PDF"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ color: "#475569", fontSize: 13, textAlign: "center", padding: "30px 0" }}>
+                      {optimizeSuggestions.length > 0 ? "点击「开始AI改写」，将基于优化建议改写" : "请先完成第2步：生成优化建议"}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 历史记录 */}
+        {activeTab === "history" && (
+          <div style={{ paddingBottom: 40 }}>
+            {history.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "80px 0", color: "#475569" }}>
+                <div style={{ fontSize: 48, marginBottom: 16 }}>🕘</div>
+                <div>还没有历史记录</div>
+                <button onClick={() => setActiveTab("input")} style={{ marginTop: 16, background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: "8px 20px", color: "#94a3b8", cursor: "pointer", fontSize: 13 }}>开始分析</button>
+              </div>
+            ) : (
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+                  <span style={{ fontSize: 14, color: "#64748b" }}>共 {history.length} 条记录（最多20条）</span>
+                  <button onClick={() => setHistory([])} style={{ background: "#450a0a33", border: "1px solid #dc262633", borderRadius: 8, padding: "6px 14px", color: "#f87171", fontSize: 12, cursor: "pointer" }}>清空记录</button>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {history.map((item) => (
+                    <div key={item.id}
+                      style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 14, padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}
+                      onClick={() => loadFromHistory(item)}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "#3b82f6"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = "#1e293b"; }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                        <ScoreBadge score={item.score} />
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 14, color: "#e2e8f0", marginBottom: 3 }}>{item.jobTitle}</div>
+                          <div style={{ fontSize: 11, color: "#475569" }}>{item.date}{"　|　"}{MODELS.find(m => m.id === item.model)?.label || item.model}</div>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 12, color: "#3b82f6" }}>查看详情</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Prompt 编辑器 */}
+        {activeTab === "prompts" && (
+          <PromptEditor prompts={prompts} onChange={updatePrompt} />
+        )}
+      </div>
+
+      {/* PDF 原文预览弹窗 */}
+      {showPdfModal && pdfPreviewUrl && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 999,
+          background: "#000000cc",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}
+          onClick={() => setShowPdfModal(false)}
+        >
+          <div style={{
+            width: "80vw", height: "90vh", background: "#0f172a",
+            border: "1px solid #1e293b", borderRadius: 16,
+            display: "flex", flexDirection: "column", overflow: "hidden",
+          }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 弹窗顶栏 */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", borderBottom: "1px solid #1e293b", flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 16 }}>📄</span>
+                <span style={{ fontWeight: 700, fontSize: 14, color: "#e2e8f0" }}>{pdfFileName}</span>
+                <span style={{ fontSize: 11, color: "#64748b" }}>原始PDF文件</span>
+              </div>
+              <button
+                onClick={() => setShowPdfModal(false)}
+                style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: "6px 16px", color: "#94a3b8", fontSize: 13, cursor: "pointer", fontWeight: 600 }}
+              >
+                ✕ 关闭
+              </button>
+            </div>
+            {/* PDF 渲染 */}
+            <iframe
+              src={pdfPreviewUrl}
+              style={{ flex: 1, border: "none", background: "#fff" }}
+              title="PDF预览"
+            />
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        * { box-sizing: border-box; }
+        textarea:focus { border-color: #3b82f6 !important; }
+        button:hover { opacity: 0.85; }
+      `}</style>
+    </div>
+  );
+}
