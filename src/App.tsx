@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { ReactNode } from "react";
 
 const API_ENDPOINT = "https://api.deepseek.com/v1/chat/completions";
@@ -424,7 +424,19 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const [activeTab, setActiveTab] = useState<string>("input");
-  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [history, setHistory] = useState<HistoryItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('jobfit_history');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+
+  // 每次 history 变化时自动保存到 localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('jobfit_history', JSON.stringify(history));
+    } catch {}
+  }, [history]);
   const [optimizeSuggestions, setOptimizeSuggestions] = useState<OptimizeSuggestion[]>([]);
   const [optimizeRaw, setOptimizeRaw] = useState<string>("");
   const [optimizeLoading, setOptimizeLoading] = useState<boolean>(false);
