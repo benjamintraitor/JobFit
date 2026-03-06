@@ -869,8 +869,8 @@ export default function App() {
     <button class="fmt-btn" onmousedown="event.preventDefault()" onclick="execFmt('italic')" title="斜体 Ctrl+I"><i style="font-size:12px">I</i></button>
     <button class="fmt-btn" onmousedown="event.preventDefault()" onclick="execFmt('underline')" title="下划线 Ctrl+U"><u style="font-size:12px">U</u></button>
     <input type="number" id="fsize-inp" min="6" max="72" step="0.5" placeholder="pt"
-      onfocus="saveSelectionNow()"
-      onkeydown="if(event.key==='Enter'){event.preventDefault();applyFontSize();this.blur();}"
+      onmousedown="onFsizeMousedown(event)"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();applyFontSize();}"
       style="width:52px;padding:2px 5px;border-radius:4px;border:1px solid #475569;background:#1e293b;color:#e2e8f0;font-size:11px;text-align:center"
       title="选中文字后点击此处输入字号，按Enter应用">
     <button class="fmt-btn" onmousedown="event.preventDefault()" onclick="applyFontSize()" title="应用字号（也可按Enter）" style="font-size:11px;padding:3px 8px">✓</button>
@@ -1067,6 +1067,17 @@ ${bodyHtml}
   });
 
   // 输入框获焦：什么都不做，保持 lastSelRange 即可
+  // 输入框 mousedown：阻止默认焦点转移（保持选区高亮）
+  // 然后用 requestAnimationFrame 手动 focus 输入框（这样不影响选区）
+  function onFsizeMousedown(e) {
+    e.preventDefault();            // 阻止焦点离开编辑区 → 选区高亮保持
+    const inp = document.getElementById('fsize-inp');
+    requestAnimationFrame(() => {  // 下一帧再 focus，此时选区已保存
+      inp.focus();
+      inp.select();
+    });
+  }
+
   function saveSelectionNow() {}
 
   function clearHighlight() {}  // 保留空函数避免其他地方调用报错
