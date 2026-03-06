@@ -1121,10 +1121,20 @@ ${bodyHtml}
     lastSelRange = newRange.cloneRange();
   }
 
-  // selectionchange 时重置 currentFontPt，让下次加减从当前字号开始
+  // selectionchange：选中文字时立即检测并显示当前字号
   document.addEventListener('selectionchange', () => {
     currentFontPt = null;
-    updateFsizeDisplay(null);
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed && lastSelRange) {
+      // 延迟一帧确保 lastSelRange 已更新
+      requestAnimationFrame(() => {
+        const pt = detectFontSize();
+        currentFontPt = pt;
+        updateFsizeDisplay(pt);
+      });
+    } else {
+      updateFsizeDisplay(null);
+    }
   });
 
   // ── 导出PDF（打印） ──
