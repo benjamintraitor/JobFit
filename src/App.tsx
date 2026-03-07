@@ -547,7 +547,7 @@ function LandingPage({ onEnter }: { onEnter: () => void }) {
       background: "#030712",
       fontFamily: "'DM Sans', 'PingFang SC', 'Microsoft YaHei', sans-serif",
       color: "#e2e8f0",
-      overflowX: "hidden",
+      width: "100%",
     }}>
 
       {/* ── Navbar ── */}
@@ -592,10 +592,11 @@ function LandingPage({ onEnter }: { onEnter: () => void }) {
       {/* ── Hero ── */}
       <section style={{
         minHeight: "100vh",
+        width: "100%",
         display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center",
         padding: "120px 24px 80px",
-        position: "relative", overflow: "hidden",
+        position: "relative",
         textAlign: "center",
       }}>
         {/* Background glow blobs */}
@@ -732,7 +733,7 @@ function LandingPage({ onEnter }: { onEnter: () => void }) {
       </section>
 
       {/* ── Features ── */}
-      <section style={{ padding: "80px 64px 100px", maxWidth: 1200, margin: "0 auto" }}>
+      <section style={{ padding: "80px 64px 100px", maxWidth: 1200, margin: "0 auto", width: "100%" }}>
         <div style={{ textAlign: "center", marginBottom: 64 }}>
           <div style={{
             fontSize: 11, fontWeight: 700, letterSpacing: 3,
@@ -786,6 +787,7 @@ function LandingPage({ onEnter }: { onEnter: () => void }) {
       {/* ── How it works ── */}
       <section style={{
         padding: "80px 64px",
+        width: "100%",
         background: "rgba(255,255,255,0.01)",
         borderTop: "1px solid rgba(255,255,255,0.04)",
         borderBottom: "1px solid rgba(255,255,255,0.04)",
@@ -927,8 +929,9 @@ function LandingPage({ onEnter }: { onEnter: () => void }) {
       {/* ── CTA Banner ── */}
       <section style={{
         padding: "80px 64px",
+        width: "100%",
         textAlign: "center",
-        position: "relative", overflow: "hidden",
+        position: "relative",
       }}>
         <div style={{
           position: "absolute", inset: 0,
@@ -992,7 +995,8 @@ function LandingPage({ onEnter }: { onEnter: () => void }) {
           50% { transform: translateX(-50%) translateY(6px); }
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { background: #030712; scroll-behavior: smooth; }
+        html, body { background: #030712; scroll-behavior: smooth; overflow-x: hidden; width: 100%; }
+        #root { width: 100%; }
       `}</style>
     </div>
   );
