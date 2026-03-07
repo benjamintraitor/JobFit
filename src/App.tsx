@@ -486,7 +486,521 @@ function PromptEditor({ prompts, onChange }: {
   );
 }
 
+
+// ─────────────────────────────────────────────
+// Landing Page Component
+// ─────────────────────────────────────────────
+function LandingPage({ onEnter }: { onEnter: () => void }) {
+  const [hovered, setHovered] = useState<string>("");
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const features = [
+    {
+      icon: "📊",
+      title: "智能匹配分析",
+      desc: "AI 从招聘决策视角深度解析简历与 JD 的匹配度，给出0-100精准评分，识别核心差距。",
+      color: "#3b82f6",
+    },
+    {
+      icon: "💡",
+      title: "针对性优化建议",
+      desc: "5条结构化优化建议，精准定位到简历的具体位置，告诉你改什么、怎么改、改完有什么效果。",
+      color: "#8b5cf6",
+    },
+    {
+      icon: "✏️",
+      title: "AI 一键改写",
+      desc: "基于优化建议对简历进行针对性改写，强化 ATS 关键词匹配，提升 HR 初筛通过率。",
+      color: "#06b6d4",
+    },
+    {
+      icon: "📄",
+      title: "导出精美简历",
+      desc: "改写后的简历直接在预览窗口编辑调整，一键导出专业 PDF，可上传证件照。",
+      color: "#10b981",
+    },
+  ];
+
+  const steps = [
+    { num: "01", title: "上传简历 + 粘贴 JD", desc: "支持 PDF / 图片导入，AI 自动识别并结构化简历内容" },
+    { num: "02", title: "获取匹配评分", desc: "从技能、项目经验、行业经验多维度评分，清晰看到优势与差距" },
+    { num: "03", title: "一键优化改写", desc: "AI 生成优化建议并改写简历，让每一份投递都更有针对性" },
+    { num: "04", title: "导出投递", desc: "在线编辑预览，调整排版字号，导出 PDF 直接投递" },
+  ];
+
+  const faqs = [
+    { q: "我的简历数据安全吗？", a: "所有数据仅在你的浏览器本地处理，历史记录保存在本地，不会上传到任何服务器。" },
+    { q: "支持哪些简历格式？", a: "支持 PDF、PNG、JPG、WEBP 等格式上传，也可以直接粘贴文字。AI 会自动识别并整理结构。" },
+    { q: "适合哪些人使用？", a: "适合任何正在求职的人，尤其是需要针对不同岗位定制简历、希望提升 ATS 通过率的求职者。" },
+    { q: "使用需要付费吗？", a: "目前完全免费使用，直接开始即可，无需注册。" },
+  ];
+
+  return (
+    <div style={{
+      minHeight: "100vh",
+      background: "#030712",
+      fontFamily: "'DM Sans', 'PingFang SC', 'Microsoft YaHei', sans-serif",
+      color: "#e2e8f0",
+      overflowX: "hidden",
+    }}>
+
+      {/* ── Navbar ── */}
+      <nav style={{
+        position: "fixed", top: 0, left: 0, right: 0, zIndex: 200,
+        padding: "0 48px",
+        height: 64,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        background: scrolled ? "rgba(3,7,18,0.92)" : "transparent",
+        backdropFilter: scrolled ? "blur(16px)" : "none",
+        borderBottom: scrolled ? "1px solid rgba(255,255,255,0.06)" : "none",
+        transition: "all 0.3s ease",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: 8,
+            background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 16,
+          }}>✦</div>
+          <span style={{ fontWeight: 800, fontSize: 17, letterSpacing: "-0.3px" }}>JobFit</span>
+          <span style={{
+            fontSize: 10, fontWeight: 600, letterSpacing: 1,
+            color: "#3b82f6", background: "rgba(59,130,246,0.12)",
+            padding: "2px 7px", borderRadius: 4, border: "1px solid rgba(59,130,246,0.25)",
+            marginLeft: 4,
+          }}>AI</span>
+        </div>
+        <button
+          onClick={onEnter}
+          style={{
+            background: "linear-gradient(135deg, #3b82f6, #6366f1)",
+            border: "none", borderRadius: 8,
+            padding: "8px 22px", color: "#fff",
+            fontSize: 13, fontWeight: 600, cursor: "pointer",
+            boxShadow: "0 0 20px rgba(99,102,241,0.35)",
+            transition: "all 0.2s",
+          }}
+        >开始使用 →</button>
+      </nav>
+
+      {/* ── Hero ── */}
+      <section style={{
+        minHeight: "100vh",
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        padding: "120px 24px 80px",
+        position: "relative", overflow: "hidden",
+        textAlign: "center",
+      }}>
+        {/* Background glow blobs */}
+        <div style={{
+          position: "absolute", top: "15%", left: "50%", transform: "translateX(-50%)",
+          width: 700, height: 400,
+          background: "radial-gradient(ellipse, rgba(99,102,241,0.18) 0%, transparent 70%)",
+          pointerEvents: "none",
+        }} />
+        <div style={{
+          position: "absolute", top: "30%", left: "20%",
+          width: 300, height: 300,
+          background: "radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%)",
+          pointerEvents: "none",
+        }} />
+        <div style={{
+          position: "absolute", top: "20%", right: "15%",
+          width: 250, height: 250,
+          background: "radial-gradient(circle, rgba(139,92,246,0.12) 0%, transparent 70%)",
+          pointerEvents: "none",
+        }} />
+
+        {/* Grid pattern overlay */}
+        <div style={{
+          position: "absolute", inset: 0, pointerEvents: "none",
+          backgroundImage: "linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)",
+          backgroundSize: "64px 64px",
+          maskImage: "radial-gradient(ellipse 80% 60% at 50% 40%, black 40%, transparent 100%)",
+        }} />
+
+        {/* Badge */}
+        <div style={{
+          display: "inline-flex", alignItems: "center", gap: 6,
+          background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.2)",
+          borderRadius: 100, padding: "6px 16px", marginBottom: 32,
+          fontSize: 12, color: "#93c5fd", fontWeight: 500, letterSpacing: 0.5,
+        }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#3b82f6", display: "inline-block", boxShadow: "0 0 8px #3b82f6" }} />
+          AI 驱动的简历优化工具
+        </div>
+
+        {/* Headline */}
+        <h1 style={{
+          fontSize: "clamp(36px, 6vw, 72px)",
+          fontWeight: 900, lineHeight: 1.08,
+          letterSpacing: "-2px", marginBottom: 24,
+          maxWidth: 780,
+        }}>
+          <span style={{ color: "#f1f5f9" }}>每一次投递，</span>
+          <br />
+          <span style={{
+            background: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #06b6d4 100%)",
+            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+          }}>都精准命中岗位</span>
+        </h1>
+
+        {/* Sub */}
+        <p style={{
+          fontSize: "clamp(15px, 2vw, 18px)", color: "#64748b",
+          lineHeight: 1.75, maxWidth: 540, marginBottom: 48,
+        }}>
+          上传简历 + 粘贴 JD，AI 秒级分析匹配度<br />
+          给出针对性优化建议，一键改写，直接导出 PDF 投递
+        </p>
+
+        {/* CTA */}
+        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
+          <button
+            onClick={onEnter}
+            onMouseEnter={() => setHovered("main-cta")}
+            onMouseLeave={() => setHovered("")}
+            style={{
+              background: hovered === "main-cta"
+                ? "linear-gradient(135deg, #2563eb, #7c3aed)"
+                : "linear-gradient(135deg, #3b82f6, #6366f1)",
+              border: "none", borderRadius: 12,
+              padding: "16px 40px", color: "#fff",
+              fontSize: 16, fontWeight: 700, cursor: "pointer",
+              boxShadow: "0 0 40px rgba(99,102,241,0.4), 0 4px 24px rgba(0,0,0,0.3)",
+              transition: "all 0.25s ease",
+              transform: hovered === "main-cta" ? "translateY(-2px)" : "translateY(0)",
+              letterSpacing: "-0.2px",
+            }}
+          >
+            免费开始分析 →
+          </button>
+          <button
+            onClick={onEnter}
+            onMouseEnter={() => setHovered("sec-cta")}
+            onMouseLeave={() => setHovered("")}
+            style={{
+              background: "transparent",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: 12, padding: "16px 32px",
+              color: "#94a3b8", fontSize: 16, fontWeight: 500,
+              cursor: "pointer", transition: "all 0.25s ease",
+              backdropFilter: "blur(8px)",
+              background: hovered === "sec-cta" ? "rgba(255,255,255,0.06)" : "transparent",
+            } as React.CSSProperties}
+          >
+            查看功能介绍
+          </button>
+        </div>
+
+        {/* Social proof */}
+        <div style={{
+          marginTop: 56, display: "flex", alignItems: "center", gap: 12,
+          color: "#475569", fontSize: 13,
+        }}>
+          <div style={{ display: "flex" }}>
+            {["🎓","💼","🚀","⭐","✦"].map((e, i) => (
+              <div key={i} style={{
+                width: 28, height: 28, borderRadius: "50%",
+                background: `hsl(${220 + i * 20}, 60%, 20%)`,
+                border: "2px solid #030712",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 12, marginLeft: i === 0 ? 0 : -8,
+              }}>{e}</div>
+            ))}
+          </div>
+          <span>已帮助 <strong style={{ color: "#94a3b8" }}>1,000+</strong> 求职者优化简历</span>
+        </div>
+
+        {/* Scroll indicator */}
+        <div style={{
+          position: "absolute", bottom: 32, left: "50%", transform: "translateX(-50%)",
+          display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+          color: "#334155", fontSize: 11, letterSpacing: 2,
+          animation: "bounce 2s infinite",
+        }}>
+          <span>SCROLL</span>
+          <div style={{ width: 1, height: 32, background: "linear-gradient(to bottom, #334155, transparent)" }} />
+        </div>
+      </section>
+
+      {/* ── Features ── */}
+      <section style={{ padding: "80px 48px 100px", maxWidth: 1100, margin: "0 auto" }}>
+        <div style={{ textAlign: "center", marginBottom: 64 }}>
+          <div style={{
+            fontSize: 11, fontWeight: 700, letterSpacing: 3,
+            color: "#475569", textTransform: "uppercase", marginBottom: 16,
+          }}>核心功能</div>
+          <h2 style={{
+            fontSize: "clamp(28px, 4vw, 44px)", fontWeight: 800,
+            letterSpacing: "-1px", color: "#f1f5f9", marginBottom: 16,
+          }}>求职全流程，一站搞定</h2>
+          <p style={{ color: "#475569", fontSize: 16, maxWidth: 480, margin: "0 auto" }}>
+            从分析到改写到导出，每一步都有 AI 协助
+          </p>
+        </div>
+
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+          gap: 20,
+        }}>
+          {features.map((f, i) => (
+            <div
+              key={i}
+              onMouseEnter={() => setHovered("feat-" + i)}
+              onMouseLeave={() => setHovered("")}
+              style={{
+                background: hovered === "feat-" + i
+                  ? "rgba(255,255,255,0.05)"
+                  : "rgba(255,255,255,0.02)",
+                border: `1px solid ${hovered === "feat-" + i ? f.color + "44" : "rgba(255,255,255,0.06)"}`,
+                borderRadius: 16, padding: "28px 24px",
+                transition: "all 0.25s ease",
+                cursor: "default",
+                transform: hovered === "feat-" + i ? "translateY(-4px)" : "translateY(0)",
+                boxShadow: hovered === "feat-" + i ? `0 8px 32px ${f.color}18` : "none",
+              }}
+            >
+              <div style={{
+                width: 44, height: 44, borderRadius: 12,
+                background: f.color + "18",
+                border: `1px solid ${f.color}33`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 20, marginBottom: 18,
+              }}>{f.icon}</div>
+              <div style={{ fontWeight: 700, fontSize: 15, color: "#e2e8f0", marginBottom: 10, letterSpacing: "-0.2px" }}>{f.title}</div>
+              <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.7 }}>{f.desc}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── How it works ── */}
+      <section style={{
+        padding: "80px 48px",
+        background: "rgba(255,255,255,0.01)",
+        borderTop: "1px solid rgba(255,255,255,0.04)",
+        borderBottom: "1px solid rgba(255,255,255,0.04)",
+      }}>
+        <div style={{ maxWidth: 900, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 64 }}>
+            <div style={{
+              fontSize: 11, fontWeight: 700, letterSpacing: 3,
+              color: "#475569", textTransform: "uppercase", marginBottom: 16,
+            }}>使用流程</div>
+            <h2 style={{
+              fontSize: "clamp(28px, 4vw, 44px)", fontWeight: 800,
+              letterSpacing: "-1px", color: "#f1f5f9",
+            }}>4步，从普通简历到精准投递</h2>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 2 }}>
+            {steps.map((s, i) => (
+              <div key={i} style={{ position: "relative", padding: "0 16px" }}>
+                {/* Connector line */}
+                {i < steps.length - 1 && (
+                  <div style={{
+                    position: "absolute", top: 20, right: -1,
+                    width: 2, height: "calc(100% - 40px)",
+                    background: "linear-gradient(to bottom, rgba(59,130,246,0.3), transparent)",
+                    display: "none",
+                  }} />
+                )}
+                <div style={{
+                  fontSize: 11, fontWeight: 800, letterSpacing: 2,
+                  color: "#3b82f6", marginBottom: 14, fontFamily: "monospace",
+                }}>{s.num}</div>
+                <div style={{
+                  width: 40, height: 2,
+                  background: "linear-gradient(to right, #3b82f6, transparent)",
+                  marginBottom: 16,
+                }} />
+                <div style={{ fontWeight: 700, fontSize: 15, color: "#e2e8f0", marginBottom: 10 }}>{s.title}</div>
+                <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.7 }}>{s.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Score preview card ── */}
+      <section style={{ padding: "100px 48px", maxWidth: 900, margin: "0 auto", textAlign: "center" }}>
+        <div style={{
+          background: "linear-gradient(135deg, rgba(59,130,246,0.08), rgba(139,92,246,0.08))",
+          border: "1px solid rgba(99,102,241,0.2)",
+          borderRadius: 24, padding: "48px 40px",
+          position: "relative", overflow: "hidden",
+        }}>
+          <div style={{
+            position: "absolute", top: -60, right: -60,
+            width: 200, height: 200,
+            background: "radial-gradient(circle, rgba(139,92,246,0.15), transparent 70%)",
+            pointerEvents: "none",
+          }} />
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 8,
+            background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.25)",
+            borderRadius: 8, padding: "6px 14px", marginBottom: 24,
+            fontSize: 12, color: "#34d399", fontWeight: 600,
+          }}>✦ 示例评分结果</div>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 40, flexWrap: "wrap" }}>
+            {/* Score ring mockup */}
+            <div style={{ position: "relative", width: 120, height: 120, flexShrink: 0 }}>
+              <svg width="120" height="120" style={{ transform: "rotate(-90deg)" }}>
+                <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="10" />
+                <circle cx="60" cy="60" r="52" fill="none"
+                  stroke="url(#scoreGrad)" strokeWidth="10"
+                  strokeDasharray={`${2 * Math.PI * 52 * 0.82} ${2 * Math.PI * 52}`}
+                  strokeLinecap="round"
+                />
+                <defs>
+                  <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#3b82f6" />
+                    <stop offset="100%" stopColor="#8b5cf6" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div style={{
+                position: "absolute", inset: 0,
+                display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center",
+              }}>
+                <div style={{ fontSize: 28, fontWeight: 900, color: "#e2e8f0", lineHeight: 1 }}>82</div>
+                <div style={{ fontSize: 10, color: "#64748b" }}>匹配度</div>
+              </div>
+            </div>
+
+            <div style={{ textAlign: "left", flex: 1, minWidth: 200 }}>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#60a5fa", marginBottom: 8 }}>较高匹配 · 建议投递</div>
+              <p style={{ color: "#64748b", fontSize: 14, lineHeight: 1.7, marginBottom: 16 }}>
+                候选人在产品思维和数据分析方面与岗位高度契合，建议补充 AI 工具使用经验以提升竞争力。
+              </p>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {["产品思维", "数据分析", "用户增长", "Prompt 工程"].map((tag, i) => (
+                  <span key={i} style={{
+                    background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.25)",
+                    borderRadius: 6, padding: "4px 10px",
+                    fontSize: 12, color: "#93c5fd",
+                  }}>{tag}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── FAQ ── */}
+      <section style={{
+        padding: "60px 48px 80px",
+        maxWidth: 700, margin: "0 auto",
+      }}>
+        <div style={{ textAlign: "center", marginBottom: 48 }}>
+          <div style={{
+            fontSize: 11, fontWeight: 700, letterSpacing: 3,
+            color: "#475569", textTransform: "uppercase", marginBottom: 16,
+          }}>FAQ</div>
+          <h2 style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-1px", color: "#f1f5f9" }}>常见问题</h2>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {faqs.map((faq, i) => (
+            <div key={i} style={{
+              background: "rgba(255,255,255,0.02)",
+              border: "1px solid rgba(255,255,255,0.06)",
+              borderRadius: 12, padding: "20px 24px",
+            }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: "#e2e8f0", marginBottom: 8 }}>Q：{faq.q}</div>
+              <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.7 }}>A：{faq.a}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── CTA Banner ── */}
+      <section style={{
+        padding: "80px 48px",
+        textAlign: "center",
+        position: "relative", overflow: "hidden",
+      }}>
+        <div style={{
+          position: "absolute", inset: 0,
+          background: "radial-gradient(ellipse 60% 80% at 50% 50%, rgba(99,102,241,0.1), transparent)",
+          pointerEvents: "none",
+        }} />
+        <h2 style={{
+          fontSize: "clamp(28px, 4vw, 48px)", fontWeight: 900,
+          letterSpacing: "-1.5px", color: "#f1f5f9", marginBottom: 16,
+        }}>现在就开始优化你的简历</h2>
+        <p style={{ color: "#64748b", fontSize: 16, marginBottom: 40 }}>免费使用 · 无需注册 · 3分钟完成分析</p>
+        <button
+          onClick={onEnter}
+          onMouseEnter={() => setHovered("final-cta")}
+          onMouseLeave={() => setHovered("")}
+          style={{
+            background: hovered === "final-cta"
+              ? "linear-gradient(135deg, #2563eb, #7c3aed)"
+              : "linear-gradient(135deg, #3b82f6, #6366f1)",
+            border: "none", borderRadius: 14,
+            padding: "18px 56px", color: "#fff",
+            fontSize: 17, fontWeight: 700, cursor: "pointer",
+            boxShadow: "0 0 60px rgba(99,102,241,0.35), 0 8px 32px rgba(0,0,0,0.4)",
+            transition: "all 0.25s ease",
+            transform: hovered === "final-cta" ? "translateY(-3px)" : "translateY(0)",
+            letterSpacing: "-0.3px",
+          }}
+        >
+          免费开始使用 →
+        </button>
+      </section>
+
+      {/* ── Footer ── */}
+      <footer style={{
+        borderTop: "1px solid rgba(255,255,255,0.04)",
+        padding: "32px 48px",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        flexWrap: "wrap", gap: 16,
+        color: "#334155", fontSize: 13,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{
+            width: 24, height: 24, borderRadius: 6,
+            background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 12,
+          }}>✦</div>
+          <span style={{ fontWeight: 700, color: "#475569" }}>JobFit</span>
+        </div>
+        <div>© 2025 JobFit · AI 求职助手 · 让每一次投递都精准命中</div>
+        <div style={{ display: "flex", gap: 24, fontSize: 12 }}>
+          <span style={{ cursor: "pointer", color: "#475569" }}>隐私政策</span>
+          <span style={{ cursor: "pointer", color: "#475569" }}>使用条款</span>
+        </div>
+      </footer>
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&display=swap');
+        @keyframes bounce {
+          0%, 100% { transform: translateX(-50%) translateY(0); }
+          50% { transform: translateX(-50%) translateY(6px); }
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+      `}</style>
+    </div>
+  );
+}
+
 export default function App() {
+  const [showLanding, setShowLanding] = useState<boolean>(true);
   const [selectedModel, setSelectedModel] = useState<string>(MODELS[0].id);
   const [resume, setResume] = useState<string>("");
   const [rawPdfText, setRawPdfText] = useState<string>("");
@@ -1314,6 +1828,10 @@ ${bodyHtml}
     display: "flex", alignItems: "center", justifyContent: "center",
     fontSize: 11, fontWeight: 700, flexShrink: 0,
   } as React.CSSProperties);
+
+  if (showLanding) {
+    return <LandingPage onEnter={() => setShowLanding(false)} />;
+  }
 
   return (
     <div style={{ minHeight: "100vh", background: "#020817", fontFamily: "'Inter', 'PingFang SC', sans-serif", color: "#e2e8f0" }}>
