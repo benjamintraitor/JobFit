@@ -831,7 +831,7 @@ export default function App() {
   #header-block{
     display:flex;
     flex-direction:row;
-    align-items:center;
+    align-items:flex-start;  /* 照片和姓名顶部对齐 */
     justify-content:space-between;
     padding-bottom:6px;
     margin-bottom:6px;
@@ -841,6 +841,7 @@ export default function App() {
   #header-text{
     flex:1;
     text-align:center;
+    padding-top:2mm;  /* 姓名稍微下移，视觉上更协调 */
   }
   .h-name{font-size:18pt;font-weight:800;letter-spacing:4px;margin-bottom:4px}
   .h-meta{font-size:8pt;color:#333;line-height:1.9}
@@ -866,13 +867,15 @@ export default function App() {
   #photo-file{display:none}
   #photo-tip{font-size:6.5pt;color:#3b82f6;margin-top:2px;cursor:pointer;text-align:center}
 
-  /* ── 正文 ── */
-  .sec-title{font-weight:800;border-bottom:1.5px solid #111;padding-bottom:1px;margin:7px 0 3px;letter-spacing:1.5px}
-  .co-title{font-weight:700;margin:4px 0 1px}
-  .proj-title{font-weight:700;margin:3px 0 1px}
-  p{margin:1px 0;color:#222}
-  ul{padding-left:13px;margin:1px 0 2px}
-  li{color:#222;margin-bottom:1px}
+  /* ── 正文（全部左对齐） ── */
+  #resume-body{text-align:left}
+  #paper-inner{text-align:left}
+  .sec-title{font-weight:800;border-bottom:1.5px solid #111;padding-bottom:1px;margin:7px 0 3px;letter-spacing:1.5px;text-align:left}
+  .co-title{font-weight:700;margin:4px 0 1px;text-align:left}
+  .proj-title{font-weight:700;margin:3px 0 1px;text-align:left}
+  p{margin:1px 0;color:#222;text-align:left}
+  ul{padding-left:13px;margin:1px 0 2px;text-align:left}
+  li{color:#222;margin-bottom:1px;text-align:left}
   strong{font-weight:700}
   code{background:#f3f4f6;padding:0 3px;border-radius:2px}
 
