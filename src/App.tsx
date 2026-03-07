@@ -783,18 +783,35 @@ export default function App() {
         if (isEmpty(block.lines)) continue;
         bodyHtml += `<div class="sec-title">${ci(block.title)}</div>`;
         let inList = false;
+
+        // 公司名特征：含"公司|集团|学院|大学|研究院|机构|有限|股份|工作室|studio|lab"，无冒号，无bullet
+        const isCoName = (l: string) => {
+          const c = cleanLine(l);
+          return /公司|集团|学院|大学|研究院|机构|有限|股份|工作室|[Ss]tudio|[Ll]ab|[Ii]nc\.|[Ll]td/.test(c)
+            && !/[：:]/.test(c) && !/^[-*]/.test(l) && c.length <= 30;
+        };
+        // 项目名特征：以"项目"开头或"项目[一二三四五六1-9]："等
+        const isProjName = (l: string) => {
+          const c = cleanLine(l);
+          return /^项目[一二三四五六七八九十\d]*[：:：\s]/.test(c) || /^项目名称[：:]/.test(c);
+        };
+
         for (const line of block.lines) {
           const isLi = /^[-*]\s+/.test(line) || /^\d+\.\s+/.test(line);
-          // ## 或 **加粗整行**（非分区标题）→ 公司/机构标题
+          const c = cleanLine(line);
+          // ## 或 **加粗整行**（非分区标题）→ 公司标题
           const isH2 = (/^#{2}\s/.test(line) && !/^#{3}/.test(line)) ||
-            (/^\*\*[^*]+\*\*$/.test(line) && !SECTION_RE.test(cleanLine(line)));
-          // ### → 项目标题
-          const isH3 = /^#{3}\s/.test(line);
+            (/^\*\*[^*]+\*\*$/.test(line) && !SECTION_RE.test(c)) ||
+            (!isLi && isCoName(line));
+          // ### 或 项目名行 → 项目标题
+          const isH3 = /^#{3}\s/.test(line) ||
+            (!isLi && !isH2 && isProjName(line));
+
           if (!isLi && inList) { bodyHtml += "</ul>"; inList = false; }
           if (isH2) {
-            bodyHtml += `<div class="co-title">${ci(line.replace(/^#+\s+/, "").replace(/^\*\*|\*\*$/g, ""))}</div>`;
+            bodyHtml += `<div class="co-title">${ci(c)}</div>`;
           } else if (isH3) {
-            bodyHtml += `<div class="proj-title">${ci(line.replace(/^#+\s+/, ""))}</div>`;
+            bodyHtml += `<div class="proj-title">${ci(c)}</div>`;
           } else if (isLi) {
             const liText = ci(line.replace(/^[-*]\s+/, "").replace(/^\d+\.\s+/, "")).trim();
             if (!liText) continue;
@@ -892,9 +909,9 @@ export default function App() {
   /* ── 正文（全部左对齐） ── */
   #resume-body{text-align:left}
   #paper-inner{text-align:left}
-  .sec-title{font-weight:800;border-bottom:1.5px solid #111;padding-bottom:1px;margin:7px 0 3px;letter-spacing:1.5px;text-align:left}
-  .co-title{font-weight:700;margin:4px 0 1px;text-align:left}
-  .proj-title{font-weight:700;margin:3px 0 1px;text-align:left}
+  .sec-title{font-weight:800;border-bottom:1.5px solid #111;padding-bottom:1px;margin:7px 0 4px;letter-spacing:1.5px;text-align:left;font-size:10.5pt}
+  .co-title{font-weight:700;margin:5px 0 1px;text-align:left;font-size:10pt}
+  .proj-title{font-weight:700;margin:4px 0 1px;text-align:left;font-size:9.5pt}
   p{margin:1px 0;color:#222;text-align:left}
   ul{padding-left:13px;margin:1px 0 2px;text-align:left}
   li{color:#222;margin-bottom:1px;text-align:left}
