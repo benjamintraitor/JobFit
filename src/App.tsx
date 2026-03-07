@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import type { ReactNode } from "react";
 
-const API_ENDPOINT = "https://api.deepseek.com/v1/chat/completions";
-const HARDCODED_API_KEY = "sk-a557d052a0c149da8de1b59249694c2a";
+// API 请求走后端代理，Key 保存在 Vercel 环境变量中，前端不暴露
+const API_ENDPOINT = "/api/chat";
 
 const MODELS = [
   { id: "deepseek-chat", label: "DeepSeek V3", desc: "最强，推荐 🔥" },
@@ -1096,7 +1096,7 @@ export default function App() {
         setPdfLoading(false); setPdfStructuring(true);
         const structRes = await fetch(API_ENDPOINT, {
           method: "POST",
-          headers: { "Authorization": "Bearer " + HARDCODED_API_KEY, "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ model: "deepseek-chat", messages: [{ role: "user", content: [
             { type: "image_url", image_url: { url: "data:" + file.type + ";base64," + base64 } },
             { type: "text", text: fillPrompt(prompts.structurePdf, { rawText: "[图片简历，请直接识别并结构化输出]" }) }
@@ -1131,7 +1131,7 @@ export default function App() {
       const structurePrompt = fillPrompt(prompts.structurePdf, { rawText });
       const res = await fetch(API_ENDPOINT, {
         method: "POST",
-        headers: { "Authorization": "Bearer " + HARDCODED_API_KEY, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ model: "deepseek-chat", messages: [{ role: "user", content: structurePrompt }], temperature: 0.1 })
       });
       if (!res.ok) throw new Error("AI结构化请求失败");
@@ -1154,7 +1154,7 @@ export default function App() {
   const callAPI = async (prompt: string): Promise<string> => {
     const res = await fetch(API_ENDPOINT, {
       method: "POST",
-      headers: { "Authorization": "Bearer " + HARDCODED_API_KEY, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ model: selectedModel, messages: [{ role: "user", content: prompt }], temperature: 0.3 })
     });
     if (!res.ok) {
