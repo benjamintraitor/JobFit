@@ -992,7 +992,7 @@ function LandingPage({ onEnter }: { onEnter: () => void }) {
           50% { transform: translateX(-50%) translateY(6px); }
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        html { scroll-behavior: smooth; }
+        html, body { background: #030712; scroll-behavior: smooth; }
       `}</style>
     </div>
   );
@@ -2242,6 +2242,7 @@ ${bodyHtml}
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         * { box-sizing: border-box; }
+        html, body { background: #020817; }
         textarea:focus { border-color: #3b82f6 !important; }
         button:hover { opacity: 0.85; }
       `}</style>
