@@ -213,6 +213,110 @@ JSON字段定义：
 [{"index":1,"title":"建议标题（10字以内）","location":"需修改的简历位置（例如：工作经历-XX公司、项目经验、技能栏）","problem":"当前存在的具体问题（1-2句）","action":"具体修改步骤，用换行分隔每一步","impact":"修改后将如何提升岗位匹配度（1句）","priority":"high"}]
 priority 只能是 high / medium / low。必须返回合法JSON数组，必须包含5条建议，不允许输出代码块、解释说明或分析过程。`,
 
+  interview: `# Role
+你是一位拥有15年经验的顶级面试官，深度熟悉互联网/科技行业的招聘逻辑。你的目标是基于候选人简历与目标岗位JD，设计一套真实面试场景中会出现的、具有深度追问逻辑的面试题组合。
+
+---
+# Input
+## 候选人简历
+{{resume}}
+
+## 目标岗位JD
+{{jd}}
+
+## 匹配分析中发现的能力差距
+{{gaps}}
+
+---
+# Task
+生成一套完整的结构化面试题，覆盖以下四个维度：
+
+## 维度一：简历深度追问（占比最大，3-5个项目各3-5问）
+- 针对简历中的每一段工作经历和项目经历，设计层层递进的追问链
+- 从"做了什么"深挖到"为什么这么做"、"遇到了什么问题"、"如何权衡取舍"、"结果如何量化"
+- 问题要像真实对话一样，前一个问题的答案自然引出下一个问题
+- 重点挖掘：决策依据、方法论、量化成果、失败复盘、个人贡献vs团队贡献
+
+## 维度二：岗位硬技能考察（2-4题）
+- 根据JD明确要求的技能，出具体的实操题或场景题
+- 题目形式要符合面试场景（不是笔试），可以是：
+  * 「给你一个数据集，你会怎么分析...」
+  * 「现在有个需求是XXX，你会如何设计方案...」
+  * 「请手画一个XXX的流程图并解释...」
+- 难度适中，考察思路而非死记硬背，不出需要写完整代码的题目
+
+## 维度三：能力差距探测（1-2题）
+- 针对简历中与JD存在差距的能力，设计探测题
+- 目的是给候选人机会解释、补充或展示学习能力
+- 例如：「我注意到你简历里AI工具使用经验较少，你是如何看待这个领域的发展的？」
+
+## 维度四：行业认知 + 软素质（1-2题）
+- 行业认知：对目标行业的趋势判断、竞品认知、市场理解
+- 软素质：与该岗位核心素质匹配的开放性问题（跨部门协作/抗压/优先级判断等）
+
+---
+# Output Format
+严格输出以下JSON格式，不要输出任何额外文字：
+
+{
+  "sections": [
+    {
+      "type": "resume_deep_dive",
+      "title": "简历深度追问",
+      "icon": "🔍",
+      "groups": [
+        {
+          "context": "【公司/项目名称】：一句话说明这段经历背景",
+          "questions": [
+            {
+              "q": "主问题",
+              "followups": ["追问1", "追问2"],
+              "intent": "考察意图（面试官想了解什么）"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "hard_skills",
+      "title": "硬技能考察",
+      "icon": "⚡",
+      "questions": [
+        {
+          "q": "题目",
+          "format": "题目形式（场景题/设计题/分析题）",
+          "key_points": ["考察要点1", "考察要点2"],
+          "intent": "考察意图"
+        }
+      ]
+    },
+    {
+      "type": "gap_probe",
+      "title": "能力差距探测",
+      "icon": "🎯",
+      "questions": [
+        {
+          "q": "题目",
+          "gap": "针对的能力差距",
+          "intent": "考察意图"
+        }
+      ]
+    },
+    {
+      "type": "open_questions",
+      "title": "行业认知 & 软素质",
+      "icon": "💬",
+      "questions": [
+        {
+          "q": "题目",
+          "category": "行业认知 或 软素质",
+          "intent": "考察意图"
+        }
+      ]
+    }
+  ]
+}`,
+
   rewrite: `# Role
 你是一位专业的简历优化顾问，擅长根据岗位JD与优化建议，对候选人简历进行精准改写，使其更符合招聘筛选逻辑与ATS关键词匹配规则。
 你的目标是在 **不改变事实、不编造经历** 的前提下，提升简历的岗位相关性、表达质量与关键词匹配度。
@@ -282,6 +386,30 @@ interface OptimizeSuggestion {
   action: string;
   impact: string;
   priority: "high" | "medium" | "low";
+}
+
+interface InterviewQuestion {
+  q: string;
+  followups?: string[];
+  intent: string;
+  format?: string;
+  key_points?: string[];
+  gap?: string;
+  category?: string;
+}
+interface InterviewGroup {
+  context: string;
+  questions: InterviewQuestion[];
+}
+interface InterviewSection {
+  type: string;
+  title: string;
+  icon: string;
+  groups?: InterviewGroup[];
+  questions?: InterviewQuestion[];
+}
+interface InterviewResult {
+  sections: InterviewSection[];
 }
 
 interface HistoryItem {
@@ -431,12 +559,14 @@ function PromptEditor({ prompts, onChange }: {
     { key: "analyze" as const, label: "📊 匹配分析", desc: "分析简历与JD匹配度，返回结构化JSON数据" },
     { key: "optimize" as const, label: "💡 优化建议", desc: "生成5条结构化建议，返回JSON数组" },
     { key: "rewrite" as const, label: "✏️ AI改写简历", desc: "基于优化建议对简历全面改写（{{suggestions}}自动注入）" },
+    { key: "interview" as const, label: "🎯 面试准备", desc: "基于简历+JD生成深度面试题，返回结构化JSON" },
   ];
   const varHints: Record<keyof typeof DEFAULT_PROMPTS, string[]> = {
     structurePdf: ["{{rawText}} ← PDF原始乱文本"],
     analyze: ["{{resume}}", "{{jd}}"],
     optimize: ["{{resume}}", "{{jd}}", "{{score}}", "{{gaps}}"],
     rewrite: ["{{resume}}", "{{jd}}", "{{suggestions}} ← 自动注入优化建议"],
+    interview: ["{{resume}}", "{{jd}}", "{{gaps}} ← 自动注入能力差距"],
   };
 
   return (
@@ -1038,6 +1168,9 @@ export default function App() {
   const [rewriteLoading, setRewriteLoading] = useState<boolean>(false);
   const [pdfExporting, setPdfExporting] = useState<boolean>(false);
   const [dragOver, setDragOver] = useState<boolean>(false);
+  const [interviewResult, setInterviewResult] = useState<InterviewResult | null>(null);
+  const [interviewLoading, setInterviewLoading] = useState<boolean>(false);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [prompts, setPrompts] = useState({ ...DEFAULT_PROMPTS });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -1258,6 +1391,31 @@ export default function App() {
     } catch (e: unknown) {
       setError("简历改写失败：" + (e instanceof Error ? e.message : "未知错误"));
     } finally { setRewriteLoading(false); }
+  };
+
+  // ── 生成面试题 ──
+  const generateInterview = async () => {
+    if (!resume.trim() || !jd.trim()) {
+      setError("请先填写简历和JD"); setActiveTab("input"); return;
+    }
+    if (!result) {
+      setError("请先完成匹配分析"); setActiveTab("input"); return;
+    }
+    setInterviewLoading(true);
+    setActiveTab("interview");
+    const gapsText = result.gaps?.join("、") || "暂无";
+    const prompt = fillPrompt(prompts.interview, { resume, jd, gaps: gapsText });
+    try {
+      let raw = await callAPI(prompt);
+      raw = raw.replace(/```json[\s\S]*?```/g, m => m.slice(7, -3).trim())
+               .replace(/^```[\s\S]*?```$/gm, s => s.slice(3, -3).trim())
+               .trim();
+      const parsed: InterviewResult = JSON.parse(raw);
+      setInterviewResult(parsed);
+      setExpandedGroups({});
+    } catch (e) {
+      setError("面试题生成失败，请重试：" + (e instanceof Error ? e.message : "解析错误"));
+    } finally { setInterviewLoading(false); }
   };
 
   // ── 简历文本 → 干净 HTML（去除所有 Markdown 符号）──
@@ -1813,6 +1971,7 @@ ${bodyHtml}
     { id: "input", label: "📝 分析" },
     { id: "optimize", label: "💡 优化建议" + (optimizeSuggestions.length > 0 ? ` (${optimizeSuggestions.length})` : "") },
     { id: "rewrite", label: "✏️ AI改写简历" },
+    { id: "interview", label: "🎯 面试准备" + (interviewResult ? " ✓" : "") },
     { id: "history", label: "🕘 历史" + (history.length > 0 ? ` (${history.length})` : "") },
     { id: "prompts", label: "⚙️ Prompt 编辑" },
   ];
@@ -1984,6 +2143,9 @@ ${bodyHtml}
                       </button>
                       <button onClick={() => setActiveTab("rewrite")} style={{ background: "#14532d33", border: "1px solid #16a34a44", borderRadius: 8, padding: "8px 18px", color: "#4ade80", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
                         ✏️ AI改写简历
+                      </button>
+                      <button onClick={generateInterview} style={{ background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 8, padding: "8px 18px", color: "#fbbf24", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                        🎯 生成面试题
                       </button>
                     </div>
                   </div>
@@ -2192,6 +2354,136 @@ ${bodyHtml}
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 面试准备 */}
+        {activeTab === "interview" && (
+          <div style={{ paddingBottom: 40 }}>
+            {/* 空状态 */}
+            {!interviewResult && !interviewLoading && (
+              <div style={{ textAlign: "center", padding: "80px 0", color: "#475569" }}>
+                <div style={{ fontSize: 52, marginBottom: 16 }}>🎯</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "#94a3b8", marginBottom: 8 }}>面试题将基于你的简历 + JD 深度定制</div>
+                <div style={{ fontSize: 13, color: "#475569", marginBottom: 24, lineHeight: 1.8 }}>
+                  涵盖：简历深度追问 · 硬技能考察 · 能力差距探测 · 行业认知
+                </div>
+                {!result ? (
+                  <button onClick={() => setActiveTab("input")} style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: "10px 24px", color: "#94a3b8", cursor: "pointer", fontSize: 13 }}>
+                    先完成匹配分析
+                  </button>
+                ) : (
+                  <button onClick={generateInterview} style={{ background: "linear-gradient(135deg, #d97706, #f59e0b)", border: "none", borderRadius: 10, padding: "12px 32px", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: "0 0 24px rgba(245,158,11,0.3)" }}>
+                    🎯 开始生成面试题
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* 加载中 */}
+            {interviewLoading && (
+              <div style={{ textAlign: "center", padding: "80px 0" }}>
+                <div style={{ fontSize: 48, marginBottom: 16, animation: "spin 2s linear infinite", display: "inline-block" }}>🎯</div>
+                <div style={{ fontSize: 15, color: "#fbbf24", fontWeight: 600, marginBottom: 8 }}>AI 正在深度分析你的简历...</div>
+                <div style={{ fontSize: 12, color: "#475569" }}>正在生成专属面试题，通常需要 10-20 秒</div>
+              </div>
+            )}
+
+            {/* 面试题结果 */}
+            {interviewResult && !interviewLoading && (
+              <div>
+                {/* 顶部操作栏 */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: "#e2e8f0", marginBottom: 4 }}>🎯 专属面试题已生成</div>
+                    <div style={{ fontSize: 12, color: "#475569" }}>基于你的简历与目标岗位深度定制，共 {interviewResult.sections.reduce((a, s) => a + (s.groups?.reduce((b, g) => b + g.questions.length, 0) || s.questions?.length || 0), 0)} 道题</div>
+                  </div>
+                  <button onClick={generateInterview} style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: "8px 16px", color: "#94a3b8", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                    <span>🔄</span> 重新生成
+                  </button>
+                </div>
+
+                {/* 各维度 */}
+                {interviewResult.sections.map((section, si) => (
+                  <div key={si} style={{ marginBottom: 24 }}>
+                    {/* Section header */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, paddingBottom: 10, borderBottom: "1px solid #1e293b" }}>
+                      <span style={{ fontSize: 18 }}>{section.icon}</span>
+                      <span style={{ fontWeight: 800, fontSize: 15, color: "#e2e8f0" }}>{section.title}</span>
+                      <span style={{ fontSize: 11, color: "#475569", background: "#1e293b", padding: "2px 8px", borderRadius: 99 }}>
+                        {section.type === "resume_deep_dive" ? `${section.groups?.length || 0} 段经历` :
+                         `${section.questions?.length || 0} 题`}
+                      </span>
+                    </div>
+
+                    {/* resume_deep_dive: 按经历分组 */}
+                    {section.type === "resume_deep_dive" && section.groups?.map((group, gi) => {
+                      const gKey = `${si}-${gi}`;
+                      const isOpen = expandedGroups[gKey] !== false; // default open
+                      return (
+                        <div key={gi} style={{ marginBottom: 14, background: "#080d1a", border: "1px solid #1e293b", borderRadius: 14, overflow: "hidden" }}>
+                          {/* Group header */}
+                          <div
+                            onClick={() => setExpandedGroups(prev => ({ ...prev, [gKey]: !isOpen }))}
+                            style={{ padding: "14px 18px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0f172a" }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{ fontSize: 13, color: "#3b82f6", fontWeight: 700 }}>📌</span>
+                              <span style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>{group.context}</span>
+                            </div>
+                            <span style={{ color: "#475569", fontSize: 12 }}>{isOpen ? "▲" : "▼"} {group.questions.length} 题</span>
+                          </div>
+                          {/* Questions */}
+                          {isOpen && (
+                            <div style={{ padding: "4px 18px 16px" }}>
+                              {group.questions.map((q, qi) => (
+                                <div key={qi} style={{ marginTop: 14, paddingTop: 14, borderTop: qi > 0 ? "1px solid #1e293b" : "none" }}>
+                                  <div style={{ display: "flex", gap: 10, marginBottom: 8 }}>
+                                    <span style={{ flexShrink: 0, width: 22, height: 22, borderRadius: "50%", background: "#1e3a5f", color: "#60a5fa", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{qi + 1}</span>
+                                    <span style={{ fontSize: 14, fontWeight: 600, color: "#e2e8f0", lineHeight: 1.6 }}>{q.q}</span>
+                                  </div>
+                                  {q.followups && q.followups.length > 0 && (
+                                    <div style={{ marginLeft: 32, marginBottom: 8 }}>
+                                      {q.followups.map((f, fi) => (
+                                        <div key={fi} style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+                                          <span style={{ color: "#3b82f6", fontSize: 12, flexShrink: 0 }}>↳</span>
+                                          <span style={{ fontSize: 13, color: "#94a3b8", lineHeight: 1.6 }}>{f}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <div style={{ marginLeft: 32, display: "inline-flex", gap: 6, alignItems: "center", background: "#1e293b55", padding: "4px 10px", borderRadius: 6 }}>
+                                    <span style={{ fontSize: 10, color: "#475569" }}>考察：</span>
+                                    <span style={{ fontSize: 11, color: "#64748b" }}>{q.intent}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* 其他维度：flat 列表 */}
+                    {section.type !== "resume_deep_dive" && section.questions?.map((q, qi) => (
+                      <div key={qi} style={{ marginBottom: 12, background: "#080d1a", border: "1px solid #1e293b", borderRadius: 12, padding: "16px 18px" }}>
+                        <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+                          <span style={{ flexShrink: 0, width: 22, height: 22, borderRadius: "50%", background: section.type === "hard_skills" ? "#1c1917" : section.type === "gap_probe" ? "#1a1a2e" : "#0d1f1a", color: section.type === "hard_skills" ? "#f97316" : section.type === "gap_probe" ? "#818cf8" : "#34d399", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{qi + 1}</span>
+                          <span style={{ fontSize: 14, fontWeight: 600, color: "#e2e8f0", lineHeight: 1.6 }}>{q.q}</span>
+                        </div>
+                        <div style={{ marginLeft: 32, display: "flex", gap: 8, flexWrap: "wrap" as const }}>
+                          {q.format && <span style={{ fontSize: 11, background: "#f9731620", color: "#fb923c", padding: "2px 8px", borderRadius: 6, border: "1px solid #f9731633" }}>{q.format}</span>}
+                          {q.gap && <span style={{ fontSize: 11, background: "#818cf820", color: "#a5b4fc", padding: "2px 8px", borderRadius: 6, border: "1px solid #818cf833" }}>差距：{q.gap}</span>}
+                          {q.category && <span style={{ fontSize: 11, background: "#34d39920", color: "#6ee7b7", padding: "2px 8px", borderRadius: 6, border: "1px solid #34d39933" }}>{q.category}</span>}
+                          {q.key_points?.map((kp, ki) => <span key={ki} style={{ fontSize: 11, background: "#1e293b", color: "#64748b", padding: "2px 8px", borderRadius: 6 }}>{kp}</span>)}
+                        </div>
+                        <div style={{ marginLeft: 32, marginTop: 8, fontSize: 11, color: "#475569" }}>考察：{q.intent}</div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
               </div>
             )}
           </div>
