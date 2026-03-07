@@ -553,7 +553,7 @@ function LandingPage({ onEnter }: { onEnter: () => void }) {
       {/* ── Navbar ── */}
       <nav style={{
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 200,
-        padding: "0 48px",
+        padding: "0 64px",
         height: 64,
         display: "flex", alignItems: "center", justifyContent: "space-between",
         background: scrolled ? "rgba(3,7,18,0.92)" : "transparent",
@@ -732,7 +732,7 @@ function LandingPage({ onEnter }: { onEnter: () => void }) {
       </section>
 
       {/* ── Features ── */}
-      <section style={{ padding: "80px 48px 100px", maxWidth: 1100, margin: "0 auto" }}>
+      <section style={{ padding: "80px 64px 100px", maxWidth: 1200, margin: "0 auto" }}>
         <div style={{ textAlign: "center", marginBottom: 64 }}>
           <div style={{
             fontSize: 11, fontWeight: 700, letterSpacing: 3,
@@ -785,12 +785,12 @@ function LandingPage({ onEnter }: { onEnter: () => void }) {
 
       {/* ── How it works ── */}
       <section style={{
-        padding: "80px 48px",
+        padding: "80px 64px",
         background: "rgba(255,255,255,0.01)",
         borderTop: "1px solid rgba(255,255,255,0.04)",
         borderBottom: "1px solid rgba(255,255,255,0.04)",
       }}>
-        <div style={{ maxWidth: 900, margin: "0 auto" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 64 }}>
             <div style={{
               fontSize: 11, fontWeight: 700, letterSpacing: 3,
@@ -832,7 +832,7 @@ function LandingPage({ onEnter }: { onEnter: () => void }) {
       </section>
 
       {/* ── Score preview card ── */}
-      <section style={{ padding: "100px 48px", maxWidth: 900, margin: "0 auto", textAlign: "center" }}>
+      <section style={{ padding: "100px 64px", maxWidth: 1100, margin: "0 auto", textAlign: "center" }}>
         <div style={{
           background: "linear-gradient(135deg, rgba(59,130,246,0.08), rgba(139,92,246,0.08))",
           border: "1px solid rgba(99,102,241,0.2)",
@@ -900,8 +900,8 @@ function LandingPage({ onEnter }: { onEnter: () => void }) {
 
       {/* ── FAQ ── */}
       <section style={{
-        padding: "60px 48px 80px",
-        maxWidth: 700, margin: "0 auto",
+        padding: "60px 64px 80px",
+        maxWidth: 800, margin: "0 auto",
       }}>
         <div style={{ textAlign: "center", marginBottom: 48 }}>
           <div style={{
@@ -926,7 +926,7 @@ function LandingPage({ onEnter }: { onEnter: () => void }) {
 
       {/* ── CTA Banner ── */}
       <section style={{
-        padding: "80px 48px",
+        padding: "80px 64px",
         textAlign: "center",
         position: "relative", overflow: "hidden",
       }}>
@@ -964,7 +964,7 @@ function LandingPage({ onEnter }: { onEnter: () => void }) {
       {/* ── Footer ── */}
       <footer style={{
         borderTop: "1px solid rgba(255,255,255,0.04)",
-        padding: "32px 48px",
+        padding: "32px 64px",
         display: "flex", alignItems: "center", justifyContent: "space-between",
         flexWrap: "wrap", gap: 16,
         color: "#334155", fontSize: 13,
@@ -1835,12 +1835,16 @@ ${bodyHtml}
   return (
     <div style={{ minHeight: "100vh", background: "#020817", fontFamily: "'Inter', 'PingFang SC', sans-serif", color: "#e2e8f0" }}>
 
-      <div style={{ borderBottom: "1px solid #1e293b", padding: "16px 32px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#020817", position: "sticky", top: 0, zIndex: 100 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>📄</div>
-          <div>
-            <div style={{ fontWeight: 800, fontSize: 16 }}>JobFit</div>
-            <div style={{ fontSize: 11, color: "#475569", letterSpacing: 1 }}>AI 简历匹配分析器</div>
+      <div style={{ borderBottom: "1px solid #1e293b", padding: "16px 48px", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#020817", position: "sticky", top: 0, zIndex: 100 }}>
+        <div
+          onClick={() => setShowLanding(true)}
+          title="返回首页"
+          style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" as const }}
+        >
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>✦</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontWeight: 800, fontSize: 17, letterSpacing: "-0.3px" }}>JobFit</span>
+            <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1, color: "#3b82f6", background: "rgba(59,130,246,0.12)", padding: "2px 7px", borderRadius: 4, border: "1px solid rgba(59,130,246,0.25)" }}>AI</span>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1857,13 +1861,13 @@ ${bodyHtml}
       </div>
 
       {error && (
-        <div style={{ margin: "16px 32px", padding: "12px 16px", background: "#450a0a", border: "1px solid #dc262644", borderRadius: 10, color: "#f87171", fontSize: 13, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ margin: "16px 48px", padding: "12px 16px", background: "#450a0a", border: "1px solid #dc262644", borderRadius: 10, color: "#f87171", fontSize: 13, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span>⚠️ {error}</span>
           <button onClick={() => setError("")} style={{ background: "none", border: "none", color: "#f87171", cursor: "pointer", fontSize: 18 }}>×</button>
         </div>
       )}
 
-      <div style={{ padding: "20px 32px 0" }}>
+      <div style={{ padding: "20px 48px 0" }}>
         <div style={{ display: "flex", gap: 4, borderBottom: "1px solid #1e293b", marginBottom: 24, overflowX: "auto" }}>
           {TABS.map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
