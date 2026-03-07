@@ -720,14 +720,30 @@ export default function App() {
       const blocks: Block[] = [];
       let cur: Block | null = null;
 
+      // 已知简历分区关键词
+      const SECTION_RE = /^(基本信息|个人信息|教育背景|教育经历|工作经历|工作经验|项目经历|项目经验|个人项目|独立项目|专业技能|技能栏|技能|语言能力|自我评价|荣誉奖项|证书|实习经历|校园经历|社会实践)/;
+
+      const cleanLine = (l: string) => l.replace(/^[#*\s]+/, "").replace(/[*]+$/, "").trim();
+
+      const isSectionTitle = (line: string): boolean => {
+        const c = cleanLine(line);
+        // 1. # 一级标题
+        if (/^#\s/.test(line) && !/^#{2}/.test(line)) return true;
+        // 2. **加粗** 整行 且 匹配已知分区（≤12字，无冒号）
+        if (/^\*\*[^*]+\*\*$/.test(line) && SECTION_RE.test(c) && c.length <= 12) return true;
+        // 3. 纯文字整行 且 匹配已知分区（≤10字，无标点）
+        if (SECTION_RE.test(c) && c.length <= 10 && !/[：:，,。.！!？?（(）)]/.test(c) && !/^[-*]/.test(line)) return true;
+        return false;
+      };
+
       for (const line of lines) {
         if (!line || /^---+$/.test(line)) continue;
-        if (/^#{1}\s+/.test(line) && !/^#{2,}/.test(line)) {
+        if (isSectionTitle(line)) {
           if (cur) blocks.push(cur);
-          cur = { title: line.replace(/^#+\s+/, ""), lines: [] };
+          cur = { title: cleanLine(line), lines: [] };
         } else {
-          if (cur) cur.lines.push(line);
-          else { if (!cur) { cur = { title: "__header__", lines: [] }; } cur.lines.push(line); }
+          if (!cur) cur = { title: "__header__", lines: [] };
+          cur.lines.push(line);
         }
       }
       if (cur) blocks.push(cur);
@@ -736,7 +752,6 @@ export default function App() {
         if (!ls.length) return true;
         const j = ls.join("").replace(/\s/g, "");
         if (j.length < 3) return true;
-        if (/^[（(][^）)]*[）)]$/.test(j)) return true;
         if (/^(没有|省略|无|暂无|略|XXX|N\/A)$/.test(j)) return true;
         return false;
       };
@@ -745,21 +760,22 @@ export default function App() {
       let bodyHtml = "";
 
       for (const block of blocks) {
-        // header块：未命名前置内容 OR "基本信息"分类
-        const isHeaderBlock = block.title === "__header__" || /^基本信息/.test(block.title);
+        const isHeaderBlock = block.title === "__header__" || /^(基本信息|个人信息)/.test(block.title);
         if (isHeaderBlock) {
           const allLines = block.lines;
-          // 找姓名行：有"姓名："前缀，或第一个不含冒号的短行
-          const nameMatch = allLines.find((l: string) =>
-            /^[-*\s]*姓名[：:]/.test(l) ||
-            (!/[：:]/.test(l) && l.replace(/^[-*#\s]+/,"").length > 0 && l.replace(/^[-*#\s]+/,"").length <= 8)
-          );
+          // 姓名：有"姓名："前缀，或首个无冒号的短行（≤10字，不是联系方式行）
+          const nameMatch = allLines.find((l: string) => {
+            const c = l.replace(/^[-*#\s*]+/, "").replace(/\*+$/, "").trim();
+            return /^姓名[：:]/.test(c) ||
+              (!/[：:]/.test(c) && c.length > 0 && c.length <= 10 &&
+               !/^(联系|求职|电话|邮|手机|地址|核心|性别|年龄)/.test(c));
+          });
           const nameText = nameMatch
-            ? nameMatch.replace(/^[-*#\s]+/,"").replace(/^姓名[：:]\s*/,"")
+            ? nameMatch.replace(/^[-*#\s*]+/, "").replace(/\*+$/, "").replace(/^姓名[：:]\s*/, "").trim()
             : "";
           const metaLines = allLines
             .filter((l: string) => l !== nameMatch)
-            .map((l: string) => l.replace(/^[-*\s]+/,"").replace(/^\d+\.\s+/,"").trim())
+            .map((l: string) => l.replace(/^[-*\s*]+/, "").replace(/\*+$/, "").replace(/^\d+\.\s+/, "").trim())
             .filter((l: string) => l.length > 0);
           headerHtml = `<div class="h-name">${ci(nameText)}</div><div class="h-meta">${metaLines.map((l: string) => ci(l)).join("<br>")}</div>`;
           continue;
@@ -769,18 +785,24 @@ export default function App() {
         let inList = false;
         for (const line of block.lines) {
           const isLi = /^[-*]\s+/.test(line) || /^\d+\.\s+/.test(line);
-          const isH2 = /^#{2}\s+/.test(line) && !/^#{3,}/.test(line);
-          const isH3 = /^#{3}\s+/.test(line);
+          // ## 或 **加粗整行**（非分区标题）→ 公司/机构标题
+          const isH2 = (/^#{2}\s/.test(line) && !/^#{3}/.test(line)) ||
+            (/^\*\*[^*]+\*\*$/.test(line) && !SECTION_RE.test(cleanLine(line)));
+          // ### → 项目标题
+          const isH3 = /^#{3}\s/.test(line);
           if (!isLi && inList) { bodyHtml += "</ul>"; inList = false; }
-          if (isH2) bodyHtml += `<div class="co-title">${ci(line.replace(/^#+\s+/, ""))}</div>`;
-          else if (isH3) bodyHtml += `<div class="proj-title">${ci(line.replace(/^#+\s+/, ""))}</div>`;
-          else if (isLi) {
+          if (isH2) {
+            bodyHtml += `<div class="co-title">${ci(line.replace(/^#+\s+/, "").replace(/^\*\*|\*\*$/g, ""))}</div>`;
+          } else if (isH3) {
+            bodyHtml += `<div class="proj-title">${ci(line.replace(/^#+\s+/, ""))}</div>`;
+          } else if (isLi) {
             const liText = ci(line.replace(/^[-*]\s+/, "").replace(/^\d+\.\s+/, "")).trim();
-            if (!liText) continue; // 跳过空行li
+            if (!liText) continue;
             if (!inList) { bodyHtml += "<ul>"; inList = true; }
             bodyHtml += `<li>${liText}</li>`;
+          } else {
+            bodyHtml += `<p>${ci(line)}</p>`;
           }
-          else bodyHtml += `<p>${ci(line)}</p>`;
         }
         if (inList) bodyHtml += "</ul>";
       }
@@ -799,7 +821,7 @@ export default function App() {
 <title>优化简历</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{background:#dde1e8;font-family:"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif}
+  html,body{background:#dde1e8;font-family:"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;text-align:left}
 
   #toolbar{
     position:fixed;top:0;left:0;right:0;z-index:999;
@@ -843,8 +865,8 @@ export default function App() {
     text-align:center;
     padding-top:2mm;  /* 姓名稍微下移，视觉上更协调 */
   }
-  .h-name{font-size:18pt;font-weight:800;letter-spacing:4px;margin-bottom:4px}
-  .h-meta{font-size:8pt;color:#333;line-height:1.9}
+  .h-name{font-size:18pt;font-weight:800;letter-spacing:4px;margin-bottom:4px;text-align:center}
+  .h-meta{font-size:8pt;color:#333;line-height:1.9;text-align:center}
 
   /* 照片：flex右侧同行，不再绝对定位 */
   #photo-wrap{
@@ -949,7 +971,7 @@ export default function App() {
 
 <div id="page-wrap">
 <div id="resume-paper">
-<div id="paper-inner">
+<div id="paper-inner" style="text-align:left">
 
   <!-- Header：居中姓名信息 + 右上角照片 -->
   <div id="header-block">
@@ -972,7 +994,7 @@ export default function App() {
   <input type="file" id="photo-file" accept="image/*">
 
   <!-- 正文 -->
-  <div id="resume-body">
+  <div id="resume-body" style="text-align:left">
 ${bodyHtml}
   </div>
 
