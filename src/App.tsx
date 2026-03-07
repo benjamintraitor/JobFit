@@ -1245,6 +1245,8 @@ export default function App() {
   const [rewriteLoading, setRewriteLoading] = useState<boolean>(false);
   const [pdfExporting, setPdfExporting] = useState<boolean>(false);
   const [dragOver, setDragOver] = useState<boolean>(false);
+  const [pdfStructureError, setPdfStructureError] = useState<string>("");
+  const lastUploadedFileRef = useRef<File | null>(null);
   const [interviewResult, setInterviewResult] = useState<InterviewResult | null>(null);
   const [interviewLoading, setInterviewLoading] = useState<boolean>(false);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
@@ -1289,12 +1291,14 @@ export default function App() {
   };
 
   const handlePdfUpload = async (file: File) => {
+    lastUploadedFileRef.current = file;
+    setPdfStructureError("");
     const isImg = /\.(png|jpg|jpeg|webp|bmp)$/i.test(file.name);
     const isPdf = file.name.toLowerCase().endsWith(".pdf");
     if (!isPdf && !isImg) { setError("请上传PDF或图片格式（PNG/JPG等）"); return; }
     // 图片格式：直接用AI识别文字，不走PDF.js
     if (isImg) {
-      setPdfLoading(true); setError(""); setPdfStructured(false);
+      setPdfLoading(true); setError(""); setPdfStructured(false); setPdfStructureError("");
       if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
       setPdfPreviewUrl(URL.createObjectURL(file));
       setPdfFileName(file.name);
@@ -1319,11 +1323,11 @@ export default function App() {
         setResume(structData.choices[0].message.content.trim());
         setPdfStructured(true);
       } catch(e: unknown) {
-        setError("图片识别失败：" + (e instanceof Error ? e.message : "未知错误"));
+        setPdfStructureError("图片识别失败：" + (e instanceof Error ? e.message : "未知错误"));
       } finally { setPdfLoading(false); setPdfStructuring(false); }
       return;
     }
-    setPdfLoading(true); setError(""); setPdfStructured(false);
+    setPdfLoading(true); setError(""); setPdfStructured(false); setPdfStructureError("");
 
     // 生成 blob URL 供弹窗预览（不走解析，直接保存原文件）
     if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl); // 释放旧的
@@ -1356,7 +1360,7 @@ export default function App() {
       if (rawPdfText) {
         setResume(rawPdfText);
       }
-      setError("PDF结构化失败，已使用原始文本：" + (e instanceof Error ? e.message : "未知错误"));
+      setPdfStructureError("AI结构化失败，已使用原始文本（可点击重新解析）：" + (e instanceof Error ? e.message : "未知错误"));
     } finally {
       setPdfLoading(false);
       setPdfStructuring(false);
@@ -2155,7 +2159,7 @@ ${bodyHtml}
                   onDragLeave={() => setDragOver(false)}
                   onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files?.[0]) handlePdfUpload(e.dataTransfer.files[0]); }}
                   style={{ position: "relative" }}>
-                  <textarea value={resume} onChange={(e) => { setResume(e.target.value); setPdfFileName(""); setPdfStructured(false); }}
+                  <textarea value={resume} onChange={(e) => { setResume(e.target.value); setPdfFileName(""); setPdfStructured(false); setPdfStructureError(""); }}
                     placeholder="粘贴简历文字，或点击上方按钮导入简历（支持PDF/图片）..."
                     style={{ ...inputStyle, height: 320, background: dragOver ? "#1e293b" : "#0f172a", border: dragOver ? "2px dashed #3b82f6" : pdfStructured ? "1px solid #16a34a44" : "1px solid #1e293b" }} />
                   {dragOver && (
@@ -2171,17 +2175,32 @@ ${bodyHtml}
                     </div>
                   )}
                 </div>
-                {/* 提示信息 */}
-                <div style={{ fontSize: 11, color: "#334155", marginTop: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span>{pdfStructured ? "✨ 已由AI重新整理结构，可直接使用" : "支持直接拖拽PDF到此区域"}</span>
-                  {pdfPreviewUrl && pdfStructured && (
+                {/* 内联错误提示 + 重新解析按钮 */}
+                {pdfStructureError ? (
+                  <div style={{ marginTop: 8, padding: "10px 14px", background: "#2d0e0e", border: "1px solid #f8717133", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+                      <span style={{ fontSize: 13, flexShrink: 0 }}>⚠️</span>
+                      <span style={{ fontSize: 12, color: "#f87171", lineHeight: 1.5 }}>AI 有时会不稳定 😢 再试一次吧～</span>
+                    </div>
                     <button
-                      onClick={() => setShowPdfModal(true)}
-                      style={{ background: "none", border: "none", color: "#60a5fa", fontSize: 11, cursor: "pointer", textDecoration: "underline" }}>
-                      📄 查看原始PDF
+                      onClick={() => lastUploadedFileRef.current && handlePdfUpload(lastUploadedFileRef.current)}
+                      disabled={pdfStructuring || pdfLoading}
+                      style={{ flexShrink: 0, background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 7, padding: "5px 12px", color: "#fbbf24", fontSize: 11, fontWeight: 700, cursor: pdfStructuring ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 5, opacity: pdfStructuring ? 0.6 : 1 }}>
+                      {pdfStructuring ? <><Spinner /> 解析中...</> : "🔄 重新解析"}
                     </button>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 11, color: "#334155", marginTop: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>{pdfStructured ? "✨ 已由AI重新整理结构，可直接使用" : "支持直接拖拽PDF到此区域"}</span>
+                    {pdfPreviewUrl && pdfStructured && (
+                      <button
+                        onClick={() => setShowPdfModal(true)}
+                        style={{ background: "none", border: "none", color: "#60a5fa", fontSize: 11, cursor: "pointer", textDecoration: "underline" }}>
+                        📄 查看原始PDF
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 <label style={{ fontSize: 12, color: "#64748b", letterSpacing: 1, textTransform: "uppercase", display: "block", marginBottom: 8 }}>💼 职位描述 JD</label>
