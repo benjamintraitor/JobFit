@@ -688,13 +688,12 @@ function LandingPage({ onEnter }: { onEnter: () => void }) {
             onMouseEnter={() => setHovered("sec-cta")}
             onMouseLeave={() => setHovered("")}
             style={{
-              background: "transparent",
+              background: hovered === "sec-cta" ? "rgba(255,255,255,0.06)" : "transparent",
               border: "1px solid rgba(255,255,255,0.1)",
               borderRadius: 12, padding: "16px 32px",
               color: "#94a3b8", fontSize: 16, fontWeight: 500,
               cursor: "pointer", transition: "all 0.25s ease",
               backdropFilter: "blur(8px)",
-              background: hovered === "sec-cta" ? "rgba(255,255,255,0.06)" : "transparent",
             } as React.CSSProperties}
           >
             查看功能介绍
