@@ -759,12 +759,27 @@ function LandingPage({ onEnter }: { onEnter: () => void }) {
         transition: "all 0.3s ease",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: 8,
-            background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 16,
-          }}>✦</div>
+          <svg width="32" height="32" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="nl1" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stopColor="#3b82f6"/><stop offset="100%" stopColor="#8b5cf6"/></linearGradient>
+                <linearGradient id="nl2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#8b5cf6"/><stop offset="100%" stopColor="#6366f1"/></linearGradient>
+                <radialGradient id="nlbg" cx="60%" cy="35%"><stop offset="0%" stopColor="#0e1628"/><stop offset="100%" stopColor="#07090f"/></radialGradient>
+              </defs>
+              <rect width="96" height="96" rx="18" fill="url(#nlbg)"/>
+              <path d="M 24 72 Q 40 44 72 22" fill="none" stroke="url(#nl1)" strokeWidth="3" strokeDasharray="6,6" opacity="0.6" strokeLinecap="round"/>
+              <rect x="10" y="54" width="26" height="32" rx="3" fill="#0f172a" stroke="#2563eb" strokeWidth="2"/>
+              <rect x="14" y="58" width="12" height="5" rx="1.5" fill="#3b82f6" opacity="0.9"/>
+              <line x1="14" y1="68" x2="30" y2="68" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" opacity="0.7"/>
+              <line x1="14" y1="74" x2="28" y2="74" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" opacity="0.5"/>
+              <g transform="translate(49,46) rotate(-38)">
+                <polygon points="0,-9 8,5 0,2.5 -8,5" fill="url(#nl1)"/>
+                <polygon points="0,2.5 -8,5 -1,0" fill="#1d4ed8" opacity="0.6"/>
+              </g>
+              <circle cx="74" cy="18" r="5" fill="url(#nl2)"/>
+              <path d="M 62 32 Q 62 25 74 25 Q 86 25 86 32" fill="url(#nl2)" opacity="0.9"/>
+              <circle cx="83" cy="11" r="6" fill="#10b981"/>
+              <polyline points="80,11 82.2,13.2 86.5,8.5" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           <span style={{ fontWeight: 800, fontSize: 17, letterSpacing: "-0.3px" }}>JobFit</span>
           <span style={{
             fontSize: 10, fontWeight: 600, letterSpacing: 1,
@@ -1180,12 +1195,27 @@ function LandingPage({ onEnter }: { onEnter: () => void }) {
         color: "#334155", fontSize: 13,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{
-            width: 24, height: 24, borderRadius: 6,
-            background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 12,
-          }}>✦</div>
+          <svg width="24" height="24" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="fl1" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stopColor="#3b82f6"/><stop offset="100%" stopColor="#8b5cf6"/></linearGradient>
+                  <linearGradient id="fl2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#8b5cf6"/><stop offset="100%" stopColor="#6366f1"/></linearGradient>
+                  <radialGradient id="flbg" cx="60%" cy="35%"><stop offset="0%" stopColor="#0e1628"/><stop offset="100%" stopColor="#07090f"/></radialGradient>
+                </defs>
+                <rect width="96" height="96" rx="18" fill="url(#flbg)"/>
+                <path d="M 24 72 Q 40 44 72 22" fill="none" stroke="url(#fl1)" strokeWidth="3" strokeDasharray="6,6" opacity="0.6" strokeLinecap="round"/>
+                <rect x="10" y="54" width="26" height="32" rx="3" fill="#0f172a" stroke="#2563eb" strokeWidth="2"/>
+                <rect x="14" y="58" width="12" height="5" rx="1.5" fill="#3b82f6" opacity="0.9"/>
+                <line x1="14" y1="68" x2="30" y2="68" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" opacity="0.7"/>
+                <line x1="14" y1="74" x2="28" y2="74" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" opacity="0.5"/>
+                <g transform="translate(49,46) rotate(-38)">
+                  <polygon points="0,-9 8,5 0,2.5 -8,5" fill="url(#fl1)"/>
+                  <polygon points="0,2.5 -8,5 -1,0" fill="#1d4ed8" opacity="0.6"/>
+                </g>
+                <circle cx="74" cy="18" r="5" fill="url(#fl2)"/>
+                <path d="M 62 32 Q 62 25 74 25 Q 86 25 86 32" fill="url(#fl2)" opacity="0.9"/>
+                <circle cx="83" cy="11" r="6" fill="#10b981"/>
+                <polyline points="80,11 82.2,13.2 86.5,8.5" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
           <span style={{ fontWeight: 700, color: "#475569" }}>JobFit</span>
         </div>
         <div>© 2025 JobFit · AI 求职助手 · 让每一次投递都精准命中</div>
@@ -2095,7 +2125,27 @@ ${bodyHtml}
           title="返回首页"
           style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" as const }}
         >
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>✦</div>
+          <svg width="32" height="32" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="nl1" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stopColor="#3b82f6"/><stop offset="100%" stopColor="#8b5cf6"/></linearGradient>
+                <linearGradient id="nl2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#8b5cf6"/><stop offset="100%" stopColor="#6366f1"/></linearGradient>
+                <radialGradient id="nlbg" cx="60%" cy="35%"><stop offset="0%" stopColor="#0e1628"/><stop offset="100%" stopColor="#07090f"/></radialGradient>
+              </defs>
+              <rect width="96" height="96" rx="18" fill="url(#nlbg)"/>
+              <path d="M 24 72 Q 40 44 72 22" fill="none" stroke="url(#nl1)" strokeWidth="3" strokeDasharray="6,6" opacity="0.6" strokeLinecap="round"/>
+              <rect x="10" y="54" width="26" height="32" rx="3" fill="#0f172a" stroke="#2563eb" strokeWidth="2"/>
+              <rect x="14" y="58" width="12" height="5" rx="1.5" fill="#3b82f6" opacity="0.9"/>
+              <line x1="14" y1="68" x2="30" y2="68" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" opacity="0.7"/>
+              <line x1="14" y1="74" x2="28" y2="74" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" opacity="0.5"/>
+              <g transform="translate(49,46) rotate(-38)">
+                <polygon points="0,-9 8,5 0,2.5 -8,5" fill="url(#nl1)"/>
+                <polygon points="0,2.5 -8,5 -1,0" fill="#1d4ed8" opacity="0.6"/>
+              </g>
+              <circle cx="74" cy="18" r="5" fill="url(#nl2)"/>
+              <path d="M 62 32 Q 62 25 74 25 Q 86 25 86 32" fill="url(#nl2)" opacity="0.9"/>
+              <circle cx="83" cy="11" r="6" fill="#10b981"/>
+              <polyline points="80,11 82.2,13.2 86.5,8.5" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ fontWeight: 800, fontSize: 17, letterSpacing: "-0.3px" }}>JobFit</span>
             <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1, color: "#3b82f6", background: "rgba(59,130,246,0.12)", padding: "2px 7px", borderRadius: 4, border: "1px solid rgba(59,130,246,0.25)" }}>AI</span>
