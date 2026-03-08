@@ -1,0 +1,36 @@
+<svg width="192" height="192" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g2a" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="g2b" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+    <radialGradient id="bg2" cx="60%" cy="35%">
+      <stop offset="0%" stop-color="#0e1628"/>
+      <stop offset="100%" stop-color="#07090f"/>
+    </radialGradient>
+    <filter id="g2glow">
+      <feGaussianBlur stdDeviation="1.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="96" height="96" rx="18" fill="url(#bg2)"/>
+  <path d="M 24 72 Q 40 44 72 22" fill="none" stroke="url(#g2a)" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.5" stroke-linecap="round"/>
+  <rect x="10" y="54" width="26" height="32" rx="3" fill="#0f172a" stroke="#2563eb" stroke-width="1.2"/>
+  <rect x="14" y="58" width="12" height="5" rx="1.5" fill="#3b82f6" opacity="0.8"/>
+  <line x1="14" y1="68" x2="30" y2="68" stroke="#60a5fa" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/>
+  <line x1="14" y1="74" x2="28" y2="74" stroke="#60a5fa" stroke-width="1.2" stroke-linecap="round" opacity="0.5"/>
+  <line x1="14" y1="80" x2="26" y2="80" stroke="#60a5fa" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/>
+  <g transform="translate(49,46) rotate(-38)">
+    <polygon points="0,-9 8,5 0,2.5 -8,5" fill="url(#g2a)" filter="url(#g2glow)"/>
+    <polygon points="0,2.5 -8,5 -1,0" fill="#1d4ed8" opacity="0.6"/>
+  </g>
+  <circle cx="74" cy="22" r="9" fill="url(#g2b)" opacity="0.2"/>
+  <circle cx="74" cy="18" r="5" fill="url(#g2b)" filter="url(#g2glow)"/>
+  <path d="M 62 32 Q 62 25 74 25 Q 86 25 86 32" fill="url(#g2b)" opacity="0.85"/>
+  <circle cx="82" cy="12" r="5" fill="#10b981" filter="url(#g2glow)"/>
+  <polyline points="79.5,12 81.5,14 85,10" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
