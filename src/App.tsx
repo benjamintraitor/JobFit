@@ -1296,34 +1296,48 @@ export default function App() {
     const isImg = /\.(png|jpg|jpeg|webp|bmp)$/i.test(file.name);
     const isPdf = file.name.toLowerCase().endsWith(".pdf");
     if (!isPdf && !isImg) { setError("请上传PDF或图片格式（PNG/JPG等）"); return; }
-    // 图片格式：直接用AI识别文字，不走PDF.js
+    // 图片格式：直接 base64 发给 DeepSeek 视觉理解，无需本地 OCR
     if (isImg) {
       setPdfLoading(true); setError(""); setPdfStructured(false); setPdfStructureError("");
       if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
       setPdfPreviewUrl(URL.createObjectURL(file));
       setPdfFileName(file.name);
       try {
+        // 读取图片为 base64
         const base64 = await new Promise<string>((res, rej) => {
           const r = new FileReader();
           r.onload = () => res((r.result as string).split(",")[1]);
-          r.onerror = rej;
+          r.onerror = () => rej(new Error("图片读取失败"));
           r.readAsDataURL(file);
         });
         setPdfLoading(false); setPdfStructuring(true);
-        const structRes = await fetch(API_ENDPOINT, {
+        // 直接发给 DeepSeek，让模型识别图片内容并结构化
+        const structurePrompt = fillPrompt(prompts.structurePdf, { rawText: "[图片简历，请直接从图片中识别文字并结构化输出，忽略此处rawText]" });
+        const res = await fetch(API_ENDPOINT, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ model: "deepseek-chat", messages: [{ role: "user", content: [
-            { type: "image_url", image_url: { url: "data:" + file.type + ";base64," + base64 } },
-            { type: "text", text: fillPrompt(prompts.structurePdf, { rawText: "[图片简历，请直接识别并结构化输出]" }) }
-          ]}], temperature: 0.1 })
+          body: JSON.stringify({
+            model: "deepseek-chat",
+            messages: [{
+              role: "user",
+              content: [
+                { type: "image_url", image_url: { url: `data:${file.type};base64,${base64}` } },
+                { type: "text", text: structurePrompt }
+              ]
+            }],
+            temperature: 0.1
+          })
         });
-        if (!structRes.ok) throw new Error("图片识别失败");
-        const structData = await structRes.json();
-        setResume(structData.choices[0].message.content.trim());
+        if (!res.ok) throw new Error(`请求失败 (${res.status})`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error.message || "模型返回错误");
+        const structured = data.choices?.[0]?.message?.content?.trim();
+        if (!structured) throw new Error("模型未返回内容");
+        setResume(structured);
         setPdfStructured(true);
       } catch(e: unknown) {
-        setPdfStructureError("图片识别失败：" + (e instanceof Error ? e.message : "未知错误"));
+        // 失败时简历区留空，让用户手动粘贴
+        setPdfStructureError("AI 有时会不稳定 😢 再试一次吧～");
       } finally { setPdfLoading(false); setPdfStructuring(false); }
       return;
     }
@@ -2170,8 +2184,8 @@ ${bodyHtml}
                   {pdfStructuring && (
                     <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#020817cc", borderRadius: 12, pointerEvents: "none", gap: 12 }}>
                       <Spinner />
-                      <div style={{ fontSize: 13, color: "#facc15", fontWeight: 600 }}>AI 正在识别简历结构...</div>
-                      <div style={{ fontSize: 11, color: "#64748b" }}>解决PDF乱码问题，请稍候</div>
+                      <div style={{ fontSize: 13, color: "#facc15", fontWeight: 600 }}>{pdfFileName && /\.(png|jpg|jpeg|webp|bmp)$/i.test(pdfFileName) ? "正在 OCR 识别图片文字..." : "AI 正在识别简历结构..."}</div>
+                      <div style={{ fontSize: 11, color: "#64748b" }}>{pdfFileName && /\.(png|jpg|jpeg|webp|bmp)$/i.test(pdfFileName) ? "图片识别需要约 15–30 秒，请稍候" : "解决PDF乱码问题，请稍候"}</div>
                     </div>
                   )}
                 </div>
