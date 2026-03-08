@@ -2,14 +2,31 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JobFit - AI 简历匹配分析器</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+    <!-- 标题 & SEO -->
+    <title>JobFit AI · 求职助手</title>
+    <meta name="description" content="AI 驱动的简历匹配分析、优化改写与面试准备工具，帮你拿到更多面试机会" />
+
+    <!-- 图标 -->
+    <link rel="icon" type="image/svg+xml" href="/icon-192.svg" />
+
+    <!-- PWA 核心 -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#3b82f6" />
+
+    <!-- iOS Safari PWA 支持 -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="JobFit" />
+    <link rel="apple-touch-icon" href="/icon-192.svg" />
+
+    <!-- 防止手机自动识别电话号码 -->
+    <meta name="format-detection" content="telephone=no" />
 
     <!-- PDF.js：用于解析上传的简历PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
-      // 设置 PDF.js worker 路径
       if (window.pdfjsLib) {
         window.pdfjsLib.GlobalWorkerOptions.workerSrc =
           'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -19,5 +36,16 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+
+    <!-- 注册 Service Worker（PWA 离线缓存） -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('✅ PWA 已启用', reg.scope))
+            .catch(err => console.warn('SW 注册失败', err));
+        });
+      }
+    </script>
   </body>
 </html>
