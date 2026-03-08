@@ -1296,60 +1296,41 @@ export default function App() {
     const isImg = /\.(png|jpg|jpeg|webp|bmp)$/i.test(file.name);
     const isPdf = file.name.toLowerCase().endsWith(".pdf");
     if (!isPdf && !isImg) { setError("请上传PDF或图片格式（PNG/JPG等）"); return; }
-    // 图片格式：OCR.space API 提取文字 → DeepSeek AI 结构化
+    // 图片格式：发到后端 /api/ocr → Groq Llama 4 视觉模型识别文字并直接结构化
     if (isImg) {
       setPdfLoading(true); setError(""); setPdfStructured(false); setPdfStructureError("");
       if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
       setPdfPreviewUrl(URL.createObjectURL(file));
       setPdfFileName(file.name);
       try {
-        // Step 1: 用 OCR.space 识别图片文字（支持中英文，无需本地依赖）
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("apikey", "helloworld");   // 免费公共 key，有速率限制可替换
-        formData.append("language", "chs");         // 中文简体
-        formData.append("isOverlayRequired", "false");
-        formData.append("detectOrientation", "true");
-        formData.append("scale", "true");
-        formData.append("OCREngine", "2");          // Engine2 中文识别更准
-
-        const ocrRes = await fetch("https://api.ocr.space/parse/image", {
-          method: "POST",
-          body: formData,
+        // Step 1: 读取图片为 base64
+        const base64 = await new Promise<string>((res, rej) => {
+          const r = new FileReader();
+          r.onload = () => res((r.result as string).split(",")[1]);
+          r.onerror = () => rej(new Error("图片读取失败"));
+          r.readAsDataURL(file);
         });
-        if (!ocrRes.ok) throw new Error("OCR 服务请求失败，请稍后重试");
-        const ocrData = await ocrRes.json();
-
-        if (ocrData.IsErroredOnProcessing) {
-          throw new Error(ocrData.ErrorMessage?.[0] || "图片识别失败");
-        }
-        const ocrText = ocrData.ParsedResults?.[0]?.ParsedText?.trim();
-        if (!ocrText || ocrText.length < 20) {
-          throw new Error("图片文字识别内容过少，请确认图片清晰且包含简历文字");
-        }
-        setRawPdfText(ocrText);
-
-        // Step 2: OCR 文字交给 DeepSeek 结构化整理
         setPdfLoading(false); setPdfStructuring(true);
-        const structurePrompt = fillPrompt(prompts.structurePdf, { rawText: ocrText });
-        const res = await fetch(API_ENDPOINT, {
+
+        // Step 2: 发到后端 /api/ocr，由 Groq 视觉模型识别 + 结构化（一步到位）
+        const structurePrompt = fillPrompt(prompts.structurePdf, { rawText: "[图片简历，请直接从图片中识别所有文字并按下方要求结构化输出]" });
+        const ocrRes = await fetch("/api/ocr", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "deepseek-chat",
-            messages: [{ role: "user", content: structurePrompt }],
-            temperature: 0.1
-          })
+            base64,
+            mimeType: file.type || "image/png",
+            structurePrompt,
+          }),
         });
-        if (!res.ok) throw new Error(`AI 结构化请求失败 (${res.status})`);
-        const data = await res.json();
-        if (data.error) throw new Error(data.error.message || "模型返回错误");
-        const structured = data.choices?.[0]?.message?.content?.trim();
-        if (!structured) throw new Error("AI 未返回内容，请重试");
+        if (!ocrRes.ok) throw new Error(`图片识别请求失败 (${ocrRes.status})`);
+        const ocrData = await ocrRes.json();
+        if (ocrData.error) throw new Error(ocrData.error.message || "识别失败");
+        const structured = ocrData.choices?.[0]?.message?.content?.trim();
+        if (!structured) throw new Error("模型未返回内容，请重试");
         setResume(structured);
         setPdfStructured(true);
       } catch(e: unknown) {
-        if (rawPdfText) setResume(rawPdfText); // 如果 OCR 成功但 AI 失败，保留原文
         setPdfStructureError("AI 有时会不稳定 😢 再试一次吧～");
       } finally { setPdfLoading(false); setPdfStructuring(false); }
       return;
